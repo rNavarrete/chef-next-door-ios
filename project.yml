@@ -40,6 +40,20 @@ settings:
     DEVELOPMENT_TEAM: HCEA5N57HT
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
 
+    # Version, in one place. XcodeGen otherwise defaults these to a literal
+    # "1.0"/"1" in each generated Info.plist, which is fine until the second
+    # TestFlight upload — App Store Connect rejects a build number it has
+    # already seen, and there is nowhere obvious to bump it.
+    #
+    # The app and the widget extension MUST carry identical values or the
+    # upload is rejected outright ("the value of CFBundleVersion in your app
+    # extension must match"), so both read these.
+    #
+    # MARKETING_VERSION is what testers see. CURRENT_PROJECT_VERSION is the
+    # build counter: bump it for every upload, reset it never.
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+
 targets:
   LitKitchen:
     type: application
@@ -56,6 +70,10 @@ targets:
       path: Sources/LitKitchen/Info.plist
       properties:
         CFBundleDisplayName: Lit Kitchen
+        # Both read the settings above, so a release is one edit in one place
+        # and the extension can never drift out of step with the app.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Injected from Config/Secrets.xcconfig at build time so no key is
         # ever committed in source.
         SUPABASE_URL: $(SUPABASE_URL)
@@ -94,9 +112,21 @@ targets:
       properties:
         # ActivityKit push. Without it Activity.request(pushType: .token)
         # fails with SessionCore.PermissionsError Code=3 and no activity
-        # appears — SPIKE_LIVE_ACTIVITY.md Finding 1. `development` is the
-        # APNs sandbox; release builds need `production`.
-        aps-environment: development
+        # appears — SPIKE_LIVE_ACTIVITY.md Finding 1.
+        #
+        # Per-configuration, because the two APNs environments do not accept
+        # each other's tokens. This was hardcoded to `development`, which is
+        # the sandbox — and TestFlight and App Store builds always talk to
+        # *production*. A tester's build would have registered a sandbox token,
+        # production APNs would have rejected every push against it, and
+        # nothing would have surfaced: no error, no crash, just an app that
+        # quietly never tells you a kitchen lit up. For an app whose whole
+        # premise is "right now", that is the feature failing invisibly.
+        #
+        # Xcode expands build settings in entitlements files, the same
+        # substitution `SUPABASE_URL` above relies on. See APS_ENVIRONMENT
+        # in this target's settings.
+        aps-environment: $(APS_ENVIRONMENT)
         # Sign in with Apple. "Default" is the plain first-party flow; the
         # other value is only for apps signing in via a related web domain.
         com.apple.developer.applesignin:
@@ -109,6 +139,12 @@ targets:
         # set, and the build silently ships a blank icon — which is what was
         # happening, because there was no catalog at all.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Sandbox for anything installed from Xcode.
+        APS_ENVIRONMENT: development
+      configs:
+        # Archives — which is what TestFlight and the App Store get.
+        Release:
+          APS_ENVIRONMENT: production
 
   LitKitchenWidgets:
     type: app-extension
@@ -120,6 +156,8 @@ targets:
       path: Sources/LitKitchenWidgets/Info.plist
       properties:
         CFBundleDisplayName: Lit Kitchen
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
