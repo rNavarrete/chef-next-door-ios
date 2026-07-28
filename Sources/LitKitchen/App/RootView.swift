@@ -47,10 +47,20 @@ struct RootView: View {
     @State private var deepLink: ThreadLink?
     // Reads live from the Supabase RPCs. Falls back to the in-memory double
     // when credentials are absent, so a fresh clone still runs.
-    @State private var discoverModel = CookingNowViewModel(repository: Self.discovery)
-    @State private var searchModel = SearchViewModel(repository: Self.discovery)
-    @State private var mapModel = MapViewModel(repository: Self.discovery)
-    @State private var savedModel = SavedViewModel(store: Self.follows)
+    /// Where the app is looking — see `BrowsingOrigin`.
+    ///
+    /// Not `@State`: it has to be the *same* object the view models were built
+    /// with, and a `@State` default would construct a second one. `@Observable`
+    /// tracks reads from `body` regardless of how the reference is held.
+    private var browsing: BrowsingOrigin { Self.origin }
+    @State private var discoverModel = CookingNowViewModel(repository: Self.discovery, browsing: Self.origin)
+    @State private var searchModel = SearchViewModel(repository: Self.discovery, browsing: Self.origin)
+    @State private var mapModel = MapViewModel(repository: Self.discovery, browsing: Self.origin)
+    @State private var savedModel = SavedViewModel(store: Self.follows, browsing: Self.origin)
+
+    /// One instance, shared by the `@State` initialisers above and by the
+    /// `browsing` property they cannot reference from their own default values.
+    @MainActor static let origin = BrowsingOrigin()
 
     private static let isConfigured =
         (Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String)?.isEmpty == false
@@ -87,9 +97,9 @@ struct RootView: View {
             ForEach(RootTab.allCases) { tab in
                 Group {
                     switch tab {
-                    case .cooking: CookingNowView(model: discoverModel, searchModel: searchModel)
-                    case .map: MapKitchenView(model: mapModel)
-                    case .messages: SavedView(model: savedModel)
+                    case .cooking: CookingNowView(model: discoverModel, searchModel: searchModel, browsing: browsing)
+                    case .map: MapKitchenView(model: mapModel, browsing: browsing)
+                    case .messages: SavedView(model: savedModel, browsing: browsing)
                     case .account: accountTab
                     }
                 }

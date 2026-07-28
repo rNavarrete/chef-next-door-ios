@@ -6,15 +6,21 @@ import SwiftUI
 @MainActor
 final class MapViewModel {
     private let repository: any DiscoveryRepository
+    private let browsing: BrowsingOrigin
 
     var results: [DiscoveryResult] = []
     var selected: DiscoveryResult?
     var showClosed = false
     var isLoading = false
 
-    var origin = Coordinate(latitude: 34.0900, longitude: -117.8903)
+    /// Read, never stored. The one answer lives in `BrowsingOrigin`, so the
+    /// feed and the map cannot disagree about where "near you" is.
+    var origin: Coordinate { browsing.coordinate }
 
-    init(repository: any DiscoveryRepository) { self.repository = repository }
+    init(repository: any DiscoveryRepository, browsing: BrowsingOrigin) {
+        self.repository = repository
+        self.browsing = browsing
+    }
 
     var visible: [DiscoveryResult] {
         showClosed ? results : results.filter(\.isCooking)
@@ -61,9 +67,18 @@ final class MapViewModel {
 /// implying a precise address. "Lights are approximate" says so out loud.
 struct MapKitchenView: View {
     @State var model: MapViewModel
+    /// Where we're looking. Owned by `RootView`; this screen is the one place
+    /// it can be changed.
+    var browsing: BrowsingOrigin
+    @State private var showingPlaceSearch = false
+    /// Seeded from the launch cluster and replaced on first load, either by the
+    /// bounding region of what's actually lit or by wherever `browsing` lands.
     @State private var camera: MapCameraPosition = .region(
         MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 34.0900, longitude: -117.8903),
+            center: CLLocationCoordinate2D(
+                latitude: BrowsingOrigin.launchCluster.coordinate.latitude,
+                longitude: BrowsingOrigin.launchCluster.coordinate.longitude
+            ),
             span: MKCoordinateSpan(latitudeDelta: 0.09, longitudeDelta: 0.09)
         )
     )
@@ -112,11 +127,30 @@ struct MapKitchenView: View {
             map
             topChrome
         }
-        .task {
+        // Keyed on the origin, so choosing a ZIP or getting a device fix
+        // reloads and re-frames rather than leaving the map on the old city
+        // with the new city's name in the bar.
+        .task(id: browsing.coordinate) {
+            browsing.start()
             await model.load()
-            // Frame every lit kitchen rather than a fixed span — a pin at the
-            // screen edge is a pin nobody taps.
-            if let region = model.boundingRegion { camera = .region(region) }
+            if let region = model.boundingRegion {
+                // Frame every lit kitchen rather than a fixed span — a pin at
+                // the screen edge is a pin nobody taps.
+                camera = .region(region)
+            } else {
+                // Nobody is cooking here. Still move: the person asked to look
+                // at this place, and staying put would read as a broken search.
+                camera = .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(
+                        latitude: browsing.coordinate.latitude,
+                        longitude: browsing.coordinate.longitude
+                    ),
+                    span: MKCoordinateSpan(latitudeDelta: 0.09, longitudeDelta: 0.09)
+                ))
+            }
+        }
+        .sheet(isPresented: $showingPlaceSearch) {
+            PlaceSearchSheet(browsing: browsing)
         }
         .sheet(item: Bindable(model).selected) { result in
             MapDetailSheet(result: result)
@@ -237,15 +271,27 @@ struct MapKitchenView: View {
     private var topChrome: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Covina · lit right now")
-                        .font(LK.Typography.bodyEmphasis)
-                    Spacer()
-                    Text("\(model.litCount) lit")
-                        .font(LK.Typography.ui(13.5, weight: .heavy))
-                        .foregroundStyle(LK.Palette.heatInk)
+                // A Button, at last. This was a `Text` with a magnifying glass
+                // beside it for months — the one search affordance in the app,
+                // and it did nothing. Every user everywhere browsed Covina.
+                Button {
+                    showingPlaceSearch = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: browsing.isFollowingDevice ? "location.fill" : "magnifyingglass")
+                        Text(browsing.isLocating
+                             ? "Finding you…"
+                             : "\(browsing.placeName) · lit right now")
+                            .font(LK.Typography.bodyEmphasis)
+                            .lineLimit(1)
+                        Spacer()
+                        Text("\(model.litCount) lit")
+                            .font(LK.Typography.ui(13.5, weight: .heavy))
+                            .foregroundStyle(LK.Palette.heatInk)
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 // Solid cream and dark ink. All of this chrome used to be
                 // `.ultraThinMaterial` forced to `.dark` — white text on a
                 // smoked-glass capsule, which only ever worked because the map

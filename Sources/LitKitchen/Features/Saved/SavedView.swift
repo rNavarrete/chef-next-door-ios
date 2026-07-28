@@ -5,14 +5,20 @@ import SwiftUI
 @MainActor
 final class SavedViewModel {
     private let store: any FollowStore
+    private let browsing: BrowsingOrigin
 
     var follows: [Follow] = []
     var rows: [DiscoveryResult] = []
     var isLoading = false
 
-    var origin = Coordinate(latitude: 34.0900, longitude: -117.8903)
+    /// Read, never stored. The one answer lives in `BrowsingOrigin`, so the
+    /// feed and the map cannot disagree about where "near you" is.
+    var origin: Coordinate { browsing.coordinate }
 
-    init(store: any FollowStore) { self.store = store }
+    init(store: any FollowStore, browsing: BrowsingOrigin) {
+        self.store = store
+        self.browsing = browsing
+    }
 
     var lit: [DiscoveryResult] { rows.filter(\.isCooking) }
     var dark: [DiscoveryResult] { rows.filter { !$0.isCooking } }
@@ -41,6 +47,7 @@ final class SavedViewModel {
 
 struct SavedView: View {
     @State var model: SavedViewModel
+    var browsing: BrowsingOrigin
     /// 3 = Messages. Was 0 for the Claims segment, which no longer exists —
     /// leaving it would land on a tag with no matching segment, so the picker
     /// renders with nothing selected.
@@ -211,7 +218,7 @@ struct SavedView: View {
         }
         .contentMargins(.bottom, 28, for: .scrollContent)
         .background(LK.Palette.ground)
-        .task { await model.load() }
+        .task(id: browsing.coordinate) { await model.load() }
         .refreshable { await model.load() }
     }
 

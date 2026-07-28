@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class CookingNowViewModel {
     private let repository: any DiscoveryRepository
+    private let browsing: BrowsingOrigin
 
     var lit: [DiscoveryResult] = []
     /// Kitchens that aren't cooking. Kept, not counted: `load` already asks the
@@ -17,11 +18,12 @@ final class CookingNowViewModel {
 
     var darkCount: Int { dark.count }
 
-    /// Covina, the launch cluster. Real location wiring is a later step; the
-    /// repository takes a coordinate either way.
-    var origin = Coordinate(latitude: 34.0900, longitude: -117.8903)
+    /// Read, never stored. The one answer lives in `BrowsingOrigin`, so the
+    /// feed and the map cannot disagree about where "near you" is.
+    var origin: Coordinate { browsing.coordinate }
 
-    init(repository: any DiscoveryRepository) {
+    init(repository: any DiscoveryRepository, browsing: BrowsingOrigin) {
+        self.browsing = browsing
         self.repository = repository
     }
 
@@ -56,9 +58,13 @@ final class CookingNowViewModel {
     /// only parsed by the `LocalizedStringKey` overload of `Text`; handed a
     /// `String` variable it renders the markup verbatim on screen, which is
     /// exactly what it did here.
+    /// The place name comes from `browsing`, not a literal. It said "near
+    /// Covina" to everyone, including — caught in the simulator — someone who
+    /// had just searched Long Beach and was looking at Long Beach results.
     var subtitleLine: String {
-        guard !lit.isEmpty else { return "No kitchens lit near Covina" }
-        return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") lit near Covina"
+        let place = browsing.placeName
+        guard !lit.isEmpty else { return "No kitchens lit near \(place)" }
+        return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") lit near \(place)"
     }
 }
 
@@ -70,6 +76,8 @@ struct CookingNowView: View {
     /// tamales" feel like different places. `RootView` had already flagged the
     /// tab set as unsettled.
     @State var searchModel: SearchViewModel
+    /// Read-only here; the map owns changing it.
+    var browsing: BrowsingOrigin
     @FocusState private var searchFocused: Bool
 
     private var hasQuery: Bool {
@@ -236,7 +244,12 @@ struct CookingNowView: View {
             }
             .allowsHitTesting(false)
         }
-        .task { await model.load() }
+        // Keyed on the origin: picking a ZIP on the map has to move the
+        // feed too, or the two tabs describe different cities.
+        .task(id: browsing.coordinate) {
+            browsing.start()
+            await model.load()
+        }
         .refreshable { await model.load() }
     }
 

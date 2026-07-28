@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class SearchViewModel {
     private let repository: any DiscoveryRepository
+    private let browsing: BrowsingOrigin
     private var searchTask: Task<Void, Never>?
 
     var query: String = "" {
@@ -18,9 +19,12 @@ final class SearchViewModel {
     var isSearching = false
     var hasSearched = false
 
-    var origin = Coordinate(latitude: 34.0900, longitude: -117.8903)
+    /// Read, never stored. The one answer lives in `BrowsingOrigin`, so the
+    /// feed and the map cannot disagree about where "near you" is.
+    var origin: Coordinate { browsing.coordinate }
 
-    init(repository: any DiscoveryRepository) {
+    init(repository: any DiscoveryRepository, browsing: BrowsingOrigin) {
+        self.browsing = browsing
         self.repository = repository
     }
 
