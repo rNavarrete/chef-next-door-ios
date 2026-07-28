@@ -37,6 +37,16 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
     public let minPriceCents: Int?
     public let minPriceUnit: PriceUnit?
     public let minPriceMinQty: Int?
+    /// Average of this cook's reviews, or nil if nobody has reviewed them.
+    ///
+    /// Nil rather than 0. Zero is a rating; "nobody has said anything yet" is
+    /// not, and every cook starts in the second state. Rendering a new cook as
+    /// 0.0 stars would be the app inventing an opinion nobody held.
+    public let rating: Double?
+    /// How many reviews that average is built from. Travels with `rating`
+    /// because the average alone is not usable — one five-star review would
+    /// otherwise outrank forty averaging 4.8.
+    public let ratingCount: Int?
 
     public var id: UUID { cookID }
 
@@ -62,6 +72,8 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
         case minPriceCents = "min_price_cents"
         case minPriceUnit = "min_price_unit"
         case minPriceMinQty = "min_price_min_qty"
+        case rating
+        case ratingCount = "rating_count"
     }
 
     public var coordinate: Coordinate {
@@ -92,6 +104,18 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
 
     public var isCooking: Bool { sessionID != nil && freshness != nil && freshness != .out }
     public var isVerified: Bool { permitStatus == .verified }
+
+    /// Enough reviews for the average to mean something.
+    ///
+    /// Three is a low bar and deliberately so — it is the difference between
+    /// "one person liked this" and "a few people agree", which is the smallest
+    /// honest claim a rating can make. Below it the number is shown but never
+    /// filtered or ranked on.
+    public static let minimumReviewsToRank = 3
+
+    public var hasMeaningfulRating: Bool {
+        (ratingCount ?? 0) >= Self.minimumReviewsToRank && rating != nil
+    }
 
     /// Cheapest item, as a buyer will read it. `nil` when the cook has nothing
     /// available — never rendered as a bare number or a zero.

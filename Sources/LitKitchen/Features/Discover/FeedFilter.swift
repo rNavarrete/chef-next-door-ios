@@ -2,12 +2,12 @@ import SwiftUI
 
 /// Ways to narrow the feed.
 ///
-/// Three, deliberately. A filter bar is a promise that each control changes the
-/// answer meaningfully, and a row of eight chips on a feed of nine kitchens is
-/// furniture rather than a tool. Each of these answers a question a buyer
-/// actually has at six o'clock on a weeknight.
+/// Four, and no more without a reason. A filter bar is a promise that each
+/// control changes the answer meaningfully, and a row of eight chips over a feed
+/// of nine kitchens is furniture rather than a tool. Each of these answers a
+/// question a buyer actually has at six o'clock on a weeknight.
 ///
-/// All three are computed from what the feed has already loaded, so they apply
+/// All four are computed from what the feed has already loaded, so they apply
 /// instantly and cost no round trip. That also means they narrow *what is on
 /// screen* rather than re-querying a wider net — the radius still decides what
 /// arrived, and a filter cannot reach past it.
@@ -31,6 +31,17 @@ enum FeedFilter: String, CaseIterable, Identifiable {
     case stillCooking
     /// Within roughly a fifteen-minute round trip.
     case closeBy
+    /// Well reviewed, by enough people for that to mean anything.
+    ///
+    /// Gated on `hasMeaningfulRating`, so a cook with one glowing review does
+    /// not outrank one with forty. Without that floor this filter surfaces
+    /// whoever happened to get reviewed first, which looks like a quality
+    /// signal and is really a luck signal.
+    ///
+    /// Expect this to read 0 for a long time. That is honest: the chip shows
+    /// its count and disables itself, so nobody taps into an empty feed
+    /// wondering what they did wrong.
+    case wellReviewed
 
     var id: String { rawValue }
 
@@ -39,6 +50,7 @@ enum FeedFilter: String, CaseIterable, Identifiable {
         case .permitted:    "Permitted"
         case .stillCooking: "Still cooking"
         case .closeBy:      "Under 2 mi"
+        case .wellReviewed: "Well reviewed"
         }
     }
 
@@ -47,6 +59,7 @@ enum FeedFilter: String, CaseIterable, Identifiable {
         case .permitted:    "checkmark.seal"
         case .stillCooking: "flame"
         case .closeBy:      "location"
+        case .wellReviewed: "star"
         }
     }
 
@@ -58,6 +71,7 @@ enum FeedFilter: String, CaseIterable, Identifiable {
         case .permitted:    result.isVerified
         case .stillCooking: result.freshness == .lit
         case .closeBy:      result.distanceM <= Self.closeByMetres
+        case .wellReviewed: result.hasMeaningfulRating && (result.rating ?? 0) >= 4.0
         }
     }
 }

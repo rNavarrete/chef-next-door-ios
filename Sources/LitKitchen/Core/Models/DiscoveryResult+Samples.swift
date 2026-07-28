@@ -24,7 +24,9 @@ extension DiscoveryResult {
                 headlineItems: ["Tamal de puerco", "Tamal de rajas con queso"],
                 headlineItemsES: ["Tamal de puerco", "Tamal de rajas con queso"],
                 headlinePhoto: nil,
-                minPriceCents: 300, minPriceUnit: .each, minPriceMinQty: 3
+                minPriceCents: 300, minPriceUnit: .each, minPriceMinQty: 3,
+ rating: nil,
+ ratingCount: nil
             ),
             DiscoveryResult(
                 cookID: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
@@ -43,7 +45,9 @@ extension DiscoveryResult {
                 headlineItems: ["Birria de res"],
                 headlineItemsES: ["Birria de res"],
                 headlinePhoto: nil,
-                minPriceCents: 400, minPriceUnit: .each, minPriceMinQty: 1
+                minPriceCents: 400, minPriceUnit: .each, minPriceMinQty: 1,
+ rating: nil,
+ ratingCount: nil
             ),
             DiscoveryResult(
                 cookID: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
@@ -59,7 +63,9 @@ extension DiscoveryResult {
                 headlineItems: ["Masa madre"],
                 headlineItemsES: ["Masa madre"],
                 headlinePhoto: nil,
-                minPriceCents: 900, minPriceUnit: .loaf, minPriceMinQty: 1
+                minPriceCents: 900, minPriceUnit: .loaf, minPriceMinQty: 1,
+ rating: nil,
+ ratingCount: nil
             ),
         ]
     }
