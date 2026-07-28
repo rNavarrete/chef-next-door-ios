@@ -22,10 +22,20 @@
 -- cake. That is a real constraint, not a shortcut, and it is why you will see
 -- the same seven images recur. Adding photographs is the only way to fix it.
 --
--- **Avatars** are generated, not photographed — see Tools/MakeAvatars.swift.
--- Flat initials on the app's palette. They read as deliberate rather than as a
--- broken image, and inventing headshots of people who do not exist would be
--- worse than not having any.
+-- **Avatars** are placeholder portraits from pravatar.cc, fetched once into
+-- supabase/seed-assets/portraits and uploaded to storage — not generated, and
+-- not tied to the cook they sit above. The pool holds 70 distinct faces, so
+-- with 90 cooks about twenty share one; that is the source's ceiling, not an
+-- oversight.
+--
+-- They will not match the names or the stories: the grandmother who learned her
+-- abuela's tamales may appear as a man in his twenties. That is the trade for
+-- having real photographs at all, and real photographs earn their place here by
+-- stressing the layout the way a cook's own upload will — skin tones, contrast,
+-- busy backgrounds — which flat initials never did.
+--
+-- Tools/MakeAvatars.swift still generates the initials fallback if you would
+-- rather have marks that make no claim about anybody.
 --
 -- **The cooks are fictional.** Names, stories and menus are invented. They are
 -- plausible for the SGV because implausible test data hides real layout bugs —
@@ -56,7 +66,7 @@ declare
   -- (ProfileRepository). A *cook's* avatar is public, and PhotoUploader puts it
   -- in kitchen-photos. Seeding into `avatars` produced a public URL that
   -- returned 400 for every cook, and a Polaroid frame with nothing in it.
-  v_av   text := 'https://niehxlaegsuhdqbyikut.supabase.co/storage/v1/object/public/kitchen-photos/seed/avatars/';
+  v_av   text := 'https://niehxlaegsuhdqbyikut.supabase.co/storage/v1/object/public/kitchen-photos/seed/portraits/';
   v_user uuid;
   v_kitchen uuid;
   k record;

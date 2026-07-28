@@ -33,3 +33,7 @@ supabase/.temp/
 
 # Generated deliverables
 lit-kitchen-design-handoff.zip
+
+# Placeholder portraits fetched from pravatar.cc, not authored here.
+# Re-fetch with the loop documented in seed_test_kitchens.sql.
+supabase/seed-assets/portraits/
