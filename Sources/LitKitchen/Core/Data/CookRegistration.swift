@@ -29,14 +29,50 @@ public struct CookRegistration: Sendable {
 
     public init() {}
 
-    /// Enough to submit. Deliberately does **not** require a permit — the
-    /// server decides what a missing permit means for `permit_status`.
+    /// The permit number as the server will see it.
+    ///
+    /// Mirrors `verify_permit`'s own normalisation exactly —
+    /// `upper(regexp_replace(…, '[^A-Za-z0-9]', '', 'g'))` — so that what the
+    /// form calls well-formed and what the register looks up cannot drift.
+    /// A cook writing "pr-0366690" is typing a valid number.
+    public var normalizedPermitNumber: String {
+        permitNumber.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
+    }
+
+    /// Whether this could be a county record ID at all.
+    ///
+    /// Every one of the 382 records LA County publishes is `PR` followed by
+    /// seven digits — no exceptions, no other lengths. Checking the shape here
+    /// means a typo gets a straight answer instantly instead of a round trip
+    /// that comes back "not on the county list", which reads like an accusation
+    /// when the real problem is a missing digit.
+    public var permitNumberIsWellFormed: Bool {
+        let n = normalizedPermitNumber
+        return n.count == 9 && n.hasPrefix("PR") && n.dropFirst(2).allSatisfy(\.isNumber)
+    }
+
+    /// Enough to submit — but not, on its own, enough to *finish*.
+    ///
+    /// A cook who says "I have my permit number" must give a well-formed one,
+    /// and the view additionally requires it to clear the county register
+    /// before the button enables (see `PermitCheck.blocksRegistration`).
+    /// Claiming a permit you cannot produce is the one thing here that misleads
+    /// a buyer, so it is the one thing gated.
+    ///
+    /// Choosing "I've applied" or "I'll sort this out later" is still a
+    /// complete answer, and still opens a kitchen. Blocking those would mean
+    /// the only people who can build a menu are the ones who least need the
+    /// lead time. What is no longer allowed is *not answering*: `.unset` was
+    /// silently equivalent to "later", which is a guess about a cook's
+    /// situation that we have no business making.
     public var isComplete: Bool {
         !displayName.trimmed.isEmpty
             && !contactValue.trimmed.isEmpty
             && !street.trimmed.isEmpty
             && !city.trimmed.isEmpty
             && !postalCode.trimmed.isEmpty
+            && permitStage != .unset
+            && (permitStage != .have || permitNumberIsWellFormed)
     }
 }
 
@@ -120,6 +156,26 @@ public enum PermitCheck: String, Decodable, Sendable {
     case agencyNotCovered = "agency_not_covered"
 
     public var isVerified: Bool { self == .verified }
+
+    /// Whether this outcome should stop a cook finishing registration.
+    ///
+    /// `agencyNotCovered` does **not** block, and that asymmetry is the whole
+    /// point. Pasadena, Long Beach and Vernon run their own health departments
+    /// and never appear in the county register, so no number those cooks type
+    /// can ever match. Gating on a match would lock them out permanently for
+    /// living on the wrong side of a line — a fact about our data, not about
+    /// their permit. They open a kitchen without a badge, same as anyone
+    /// who hasn't been checked.
+    ///
+    /// The other three all mean the claim is unsupported *and the cook can do
+    /// something about it*: fix the digits, correct the address, or get in
+    /// touch about a number someone else already holds.
+    public var blocksRegistration: Bool {
+        switch self {
+        case .verified, .agencyNotCovered: false
+        case .notFound, .wrongArea, .alreadyClaimed: true
+        }
+    }
 }
 
 public struct PermitCheckResult: Decodable, Sendable {
@@ -215,6 +271,32 @@ public final class CookRegistrationService {
             throw RegistrationError.geocodingFailed
         }
         return coordinate
+    }
+
+    /// The same check as `checkPermit`, run against the address still in the
+    /// form rather than a kitchen that doesn't exist yet (`migrations/062`).
+    ///
+    /// This is what the submit button waits on. `checkPermit` still runs after
+    /// registration and remains the authoritative write — this one only reads,
+    /// so a cook cannot be left with a `permit_status` from a kitchen that was
+    /// never created.
+    public func preflightPermit(
+        _ number: String, city: String, postalCode: String
+    ) async -> PermitCheckResult? {
+        struct Params: Encodable {
+            let p_number: String
+            let p_city: String
+            let p_postal_code: String
+        }
+        let rows: [PermitCheckResult]? = try? await client
+            .rpc("preflight_permit", params: Params(
+                p_number: number.trimmed,
+                p_city: city.trimmed,
+                p_postal_code: postalCode.trimmed
+            ))
+            .execute()
+            .value
+        return rows?.first
     }
 
     /// Checks a permit number against the mirrored county register.

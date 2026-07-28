@@ -139,6 +139,25 @@ public final class SupabaseCookRepository: CookRepository {
             .execute()
     }
 
+    /// Deletes a dish.
+    ///
+    /// No RPC and no ownership filter here on purpose: `menu_owner_write` is an
+    /// ALL policy on `cook_id = auth.uid()`, so RLS already scopes this to the
+    /// caller's own menu and a stray id simply deletes nothing. Adding an
+    /// `.eq("cook_id", …)` would read as the security boundary while being
+    /// merely a hint — the policy is the boundary.
+    ///
+    /// Order history is unaffected: order lines store the dish's name and price
+    /// as they were at the time (044), so nothing here can rewrite what someone
+    /// already ordered.
+    public func delete(_ itemID: UUID) async throws {
+        try await client
+            .from("menu_items")
+            .delete()
+            .eq("id", value: itemID)
+            .execute()
+    }
+
     public enum RepositoryError: Error, CustomStringConvertible {
         case sessionNotFoundAfterOpen
         case noKitchen

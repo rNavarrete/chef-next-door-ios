@@ -31,4 +31,8 @@ public protocol CookRepository: AnyObject {
     func setAvailability(_ isAvailable: Bool, for itemID: UUID) async throws
     /// Makes this dish the one the feed card shows.
     func setHeadline(_ itemID: UUID) async throws
+    /// Removes a dish for good. Distinct from `setAvailability(false,…)`, which
+    /// is "not today" — a cook who has stopped making something entirely
+    /// otherwise carries it on their menu forever.
+    func delete(_ itemID: UUID) async throws
 }

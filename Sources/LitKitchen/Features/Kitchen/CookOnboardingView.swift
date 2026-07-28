@@ -22,6 +22,11 @@ struct CookOnboardingView: View {
     @State private var lookupTask: Task<Void, Never>?
     @State private var avatarURL: String?
     @State private var permitResult: PermitCheckResult?
+    /// The county check run *before* registration. This is what gates the
+    /// button; `permitResult` is the authoritative one that runs after.
+    @State private var preflight: PermitCheckResult?
+    @State private var permitTask: Task<Void, Never>?
+    @State private var isCheckingPermit = false
 
     var body: some View {
         ScrollView {
@@ -32,6 +37,7 @@ struct CookOnboardingView: View {
                 if let rules, rulesCity == form.city.trimmed { agencyNotice(rules) }
                 permit
                 submitButton
+                submitBlockedNote
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -256,11 +262,25 @@ struct CookOnboardingView: View {
                 GroupedCard {
                     LabeledField(
                         label: "Number", text: $form.permitNumber,
-                        placeholder: "PR0123456",
+                        placeholder: "PR0366690",
                         capitalization: .characters
                     )
                 }
-                Text("We check this against the county's published list the moment you finish — no documents, no waiting on us. Permit numbers are public record and shown on your kitchen page.")
+
+                // Shape first, register second. A missing digit and a permit
+                // that isn't on the county list are different problems, and
+                // saying "not on the list" to someone who simply mistyped
+                // reads as an accusation.
+                if !form.permitNumber.trimmed.isEmpty, !form.permitNumberIsWellFormed {
+                    permitNote(
+                        icon: "exclamationmark.circle",
+                        "County permit numbers are PR followed by seven digits, like PR0366690."
+                    )
+                } else if isCheckingPermit {
+                    permitNote(icon: "clock", "Checking the county register…")
+                }
+
+                Text("We check this against the county's published list before you finish — no documents, no waiting on us. Permit numbers are public record and shown on your kitchen page.")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -286,7 +306,73 @@ struct CookOnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let permitResult { permitOutcome(permitResult) }
+            // The post-registration result wins once it exists: it is the one
+            // that actually set `permit_status`.
+            if let shown = permitResult ?? preflight { permitOutcome(shown) }
+        }
+        // Re-checked whenever the number or the address it is corroborated
+        // against changes. Both matter: the same number is `verified` in one
+        // city and `wrong_area` in the next, so a cook who fixes their ZIP
+        // after a failed check must not stay blocked on the stale answer.
+        .onChange(of: form.permitNumber) { _, _ in schedulePermitCheck() }
+        .onChange(of: form.city) { _, _ in schedulePermitCheck() }
+        .onChange(of: form.postalCode) { _, _ in schedulePermitCheck() }
+        .onChange(of: form.permitStage) { _, stage in
+            // Leaving the "I have it" path drops the check with the claim.
+            if stage != .have {
+                permitTask?.cancel()
+                preflight = nil
+                isCheckingPermit = false
+            } else {
+                schedulePermitCheck()
+            }
+        }
+    }
+
+    private func permitNote(icon: String, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Image(systemName: icon).font(LK.Typography.ui(13, weight: .semibold))
+            Text(text)
+                .font(LK.Typography.meta)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(LK.Palette.inkQuiet)
+    }
+
+    /// Debounced county check, on the same 400ms as the agency lookup.
+    ///
+    /// `preflight` is cleared synchronously rather than left showing while a
+    /// new check runs. Otherwise a cook who corrected a rejected number would
+    /// see the old "we couldn't match it" sitting under the field for as long
+    /// as the round trip took, and the button would still be enabled off the
+    /// *previous* answer if they had corrected it in the other direction.
+    private func schedulePermitCheck() {
+        permitTask?.cancel()
+        preflight = nil
+        isCheckingPermit = false
+
+        guard form.permitStage == .have,
+              form.permitNumberIsWellFormed,
+              form.city.trimmed.count >= 3
+        else { return }
+
+        let number = form.normalizedPermitNumber
+        let city = form.city.trimmed
+        let zip = form.postalCode.trimmed
+        isCheckingPermit = true
+
+        permitTask = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            let result = await service.preflightPermit(number, city: city, postalCode: zip)
+            guard !Task.isCancelled else { return }
+            // Compared against the live fields, not the captured ones: this
+            // closure holds a snapshot from the last render, so the same
+            // staleness that bit the agency lookup applies here.
+            guard number == form.normalizedPermitNumber,
+                  city == form.city.trimmed else { return }
+            preflight = result
+            isCheckingPermit = false
         }
     }
 
@@ -356,7 +442,43 @@ struct CookOnboardingView: View {
         .disabled(!canSubmit)
     }
 
-    private var canSubmit: Bool { form.isComplete && !isSubmitting }
+    @ViewBuilder
+    private var submitBlockedNote: some View {
+        if let submitBlockedReason {
+            Text(submitBlockedReason)
+                .font(LK.Typography.meta)
+                .foregroundStyle(LK.Palette.inkQuiet)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var canSubmit: Bool { form.isComplete && !isSubmitting && permitCleared }
+
+    /// A cook claiming a permit has to have cleared the register first.
+    ///
+    /// Only the `.have` path is gated. `.applying` and `.later` are honest
+    /// statements about where someone is and open a kitchen without a badge,
+    /// exactly as before — see `CookRegistration.isComplete`.
+    private var permitCleared: Bool {
+        guard form.permitStage == .have else { return true }
+        guard let preflight else { return false }
+        return !preflight.outcome.blocksRegistration
+    }
+
+    /// Why the button is off, when the reason isn't just "keep typing".
+    ///
+    /// A disabled control with no explanation is the worst version of this
+    /// gate: the cook has filled everything in, the button is grey, and
+    /// nothing on screen connects that to the permit field. The outcome card
+    /// above says what the register found; this says what it means for them.
+    private var submitBlockedReason: String? {
+        guard form.permitStage == .have, !isSubmitting else { return nil }
+        guard form.permitNumberIsWellFormed else { return nil }   // the field says it
+        if isCheckingPermit { return nil }                        // the spinner says it
+        guard let preflight else { return nil }
+        guard preflight.outcome.blocksRegistration else { return nil }
+        return "You can open your kitchen without a permit number — choose “I've applied” or “I'll sort this out later” above. What we can't do is show a permit badge we couldn't match."
+    }
 
     private func submit() {
         isSubmitting = true

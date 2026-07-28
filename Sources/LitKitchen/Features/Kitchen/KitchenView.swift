@@ -110,6 +110,18 @@ final class KitchenViewModel {
             items = try await repository.menuItems()
         } catch { errorMessage = UserFacingError.message(for: error, fallback: "Couldn't reach your kitchen. Try again in a moment.") }
     }
+
+    /// Removes a dish for good.
+    ///
+    /// Reloads the whole list rather than dropping the row locally: deleting
+    /// the headline promotes whatever was second to the feed card, and the
+    /// cook should watch that happen rather than find out from a buyer.
+    func delete(_ item: MenuItem) async {
+        do {
+            try await repository.delete(item.id)
+            items = try await repository.menuItems()
+        } catch { errorMessage = UserFacingError.message(for: error, fallback: "Couldn't remove that dish. Try again in a moment.") }
+    }
 }
 
 struct KitchenView: View {
@@ -123,6 +135,8 @@ struct KitchenView: View {
     /// a sheet that said "0 claims are still open" while four were.
     @State private var closeOut: CloseOutPrompt?
     @State private var showingStory = false
+    /// Non-nil while confirming a deletion.
+    @State private var deletingItem: MenuItem?
 
     var body: some View {
         ScrollView {
@@ -157,6 +171,25 @@ struct KitchenView: View {
                 // record. It closes the row here and nowhere else.
                 Task { try? await repo.markPickedUp(in: order.conversationID) }
             }
+        }
+        // Deliberately steers to the reversible option. Most of the time a cook
+        // reaching for "delete" has run out for the day, and sold-out is one
+        // tap away on the row itself.
+        .confirmationDialog(
+            "Delete this dish?",
+            isPresented: Binding(
+                get: { deletingItem != nil },
+                set: { if !$0 { deletingItem = nil } }
+            ),
+            presenting: deletingItem
+        ) { item in
+            Button("Delete \(item.displayName())", role: .destructive) {
+                Task { await model.delete(item) }
+                deletingItem = nil
+            }
+            Button("Keep it", role: .cancel) { deletingItem = nil }
+        } message: { _ in
+            Text("This takes it off your menu for good. If you're just out today, mark it sold out instead.")
         }
         .sheet(isPresented: $showingStory) {
             CookStorySheet(cookID: model.cookID, story: model.story) { saved in
@@ -393,7 +426,8 @@ struct KitchenView: View {
                             // it, and the only place they can change it.
                             isHeadline: index == 0,
                             onEdit: { editingItem = item },
-                            onMakeHeadline: { Task { await model.makeHeadline(item) } }
+                            onMakeHeadline: { Task { await model.makeHeadline(item) } },
+                            onDelete: { deletingItem = item }
                         ) { available in
                             Task { await model.setAvailability(available, for: item) }
                         }
@@ -431,6 +465,7 @@ private struct MenuRow: View {
 
     var onEdit: () -> Void = {}
     var onMakeHeadline: () -> Void = {}
+    var onDelete: () -> Void = {}
     let onAvailabilityChange: (Bool) -> Void
 
     var body: some View {
@@ -516,6 +551,10 @@ private struct MenuRow: View {
             if !isHeadline {
                 Button("Show this one first", systemImage: "arrow.up.to.line", action: onMakeHeadline)
             }
+            // Last, and separated by role, because the chip beside it already
+            // covers the thing cooks actually want most of the time: "not
+            // today" is sold-out, not deletion.
+            Button("Delete dish", systemImage: "trash", role: .destructive, action: onDelete)
         }
         .accessibilityElement(children: .combine)
         .accessibilityHint("Double tap to edit this dish")
