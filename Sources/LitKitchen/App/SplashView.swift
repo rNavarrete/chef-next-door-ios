@@ -33,7 +33,7 @@ struct SplashView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 30) {
-                burgerCharacter
+                chefCharacter
                     .frame(width: 190, height: 190)
                     .scaleEffect(landed ? 1 : 0.62)
                     .opacity(landed ? 1 : 0)
@@ -104,19 +104,20 @@ struct SplashView: View {
     /// app's ink.
     private let ink = Color(hex: 0x2E2216)
 
-    /// The burger, stacked.
+    /// The chef.
     ///
-    /// Same drawing language as everything else in this pass: one flat fill per
-    /// part, one uniform ink line, no gradients. The parts are drawn back to
-    /// front and overlap by a few points so the stack reads as *pressed
-    /// together* rather than as five shapes resting on each other.
+    /// Same drawing language as before — one flat fill per part, one uniform
+    /// ink line, no gradients — but the subject changed with the name. A burger
+    /// belonged to "Lit Kitchen", which was about food. "Chef Next Door" is
+    /// about a person, and a character with a face carries a name about people
+    /// in a way a sandwich cannot.
     ///
-    /// The cheese is `heat` — the app's own marigold, and the one place in the
-    /// character where a brand colour lands on something that is genuinely
-    /// supposed to look hot.
-    private var burgerCharacter: some View {
-        // Proportions are fractions of the frame so the whole thing scales as
-        // one object; nudging a layer means moving one number.
+    /// The neckerchief is `heat`, the app's marigold. It inherits the role the
+    /// cheese used to play: the single place a brand colour lands on the
+    /// character, small enough to read as an accent rather than as branding.
+    private var chefCharacter: some View {
+        // Fractions of the frame, so the whole thing scales as one object and
+        // nudging a part means moving one number.
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
             let ink = self.ink
@@ -125,87 +126,54 @@ struct SplashView: View {
             let line: CGFloat = 7
 
             ZStack(alignment: .top) {
-                // Back to front. Each layer covers the top of the one before,
-                // so the visible band of every filling is the gap between its
-                // own top and the next layer's — laid out here so each gets a
-                // clear stripe instead of being buried:
+                // Back to front, each part overlapping the one before by a few
+                // points so it reads as one drawing rather than stacked pieces:
                 //
-                //   bun 0…0.38 · cheese 0.38…0.50 · patty 0.50…0.60
-                //   lettuce 0.60…0.66 (+ scallops) · bottom bun 0.66…0.90
-                //
-                // Every filling's top edge is hidden behind the layer above, so
-                // its stroke is spent where nobody sees it. Three of those in a
-                // narrow zone fused into one black band and swallowed the
-                // cheese; the bands below are sized to absorb that.
-                //
-                // Fillings share one width and the buns share another, so their
-                // side walls stack into a single silhouette edge. At five
-                // different widths each wall was stroked separately and left
-                // stray vertical stubs poking out of both sides.
-                let bunW = w * 0.88
-                // 0.92, not 0.96. The fillings should peek past the bun, not
-                // shelf out of it — at 4% a side the overhang plus a 7pt stroke
-                // made a hard square shoulder wider than the crown's widest
-                // point, and the cheese looked like it belonged to a bigger
-                // burger.
-                let fillW = w * 0.92
+                //   toque puff 0…0.34 · band 0.30…0.42
+                //   face 0.38…0.86 · collar 0.80…0.95
 
-                BottomBun()
-                    .fill(Color(hex: 0xF0B96A))
-                    .overlay { BottomBun().stroke(ink, lineWidth: line) }
-                    .frame(width: bunW, height: h * 0.24)
-                    .offset(y: h * 0.66)
+                // No collar. An earlier pass had a marigold neckerchief under the
+                // chin; it hung like a bib, and a yellow shape below a round tan
+                // head made the whole character read as a bee. Sanrio faces are
+                // a head and one accessory — the toque is the accessory, and
+                // anything else competes with it.
 
-                Lettuce()
-                    .fill(Color(hex: 0x86BE5F))
-                    .overlay { Lettuce().stroke(ink, lineWidth: line) }
-                    .frame(width: fillW, height: h * 0.14)
-                    .offset(y: h * 0.60)
-
-                Capsule(style: .continuous)
-                    .fill(Color(hex: 0x9A5B33))
-                    .overlay { Capsule(style: .continuous).stroke(ink, lineWidth: line) }
-                    .frame(width: fillW, height: h * 0.14)
-                    .offset(y: h * 0.47)
-
-                // `heat`, and drawn *over* the patty so the drips drape onto it.
-                //
-                // The slice's flat edge has to land at or below the patty's top.
-                // At 0.44 against a patty starting at 0.50 there was an 11pt
-                // band of bare background showing between and beside the drips,
-                // and the cheese read as hovering with nothing under it.
-                Cheese()
-                    .fill(LK.Palette.heat)
-                    .overlay { Cheese().stroke(ink, lineWidth: line) }
-                    .frame(width: fillW, height: h * 0.26)
-                    .offset(y: h * 0.35)
-
-                TopBun()
+                // The face. A circle slightly wider than tall — a true circle
+                // reads as a ball, and the squash is most of what makes it a
+                // face.
+                Ellipse()
                     .fill(Color(hex: 0xF5C57A))
-                    .overlay { TopBun().stroke(ink, lineWidth: line) }
+                    .overlay { Ellipse().stroke(ink, lineWidth: line) }
+                    .frame(width: w * 0.76, height: h * 0.46)
+                    .offset(y: h * 0.38)
                     .overlay {
-                        ZStack {
-                            seed.offset(x: -w * 0.20, y: -h * 0.055)
-                            // Higher than the other two: at -0.06 it landed dead centre
-                            // between the eyes and read as a bindi rather than a seed.
-                            seed.offset(x: w * 0.03, y: -h * 0.115)
-                            seed.offset(x: w * 0.22, y: -h * 0.035)
-                        }
+                        face.offset(y: h * 0.36)
                     }
-                    // Offset is a fraction of the *whole* frame, but the bun it sits on is
-                    // only 0.42 of that — so 0.10 was a quarter of the bun's height
-                    // downward and pushed the mouth onto the crown's cut edge.
-                    .overlay { face.offset(y: h * 0.02) }
-                    .frame(width: bunW, height: h * 0.38)
+
+                // The puff. Three lobes rather than one dome — one dome is a
+                // beanie, and the lobes are the whole reason a toque reads as a
+                // chef's hat at this size.
+                ToquePuff()
+                    .fill(Color(hex: 0xFBF6EC))
+                    .overlay { ToquePuff().stroke(ink, lineWidth: line) }
+                    .frame(width: w * 0.78, height: h * 0.34)
+                // Toque band, in `heat`. This is where the brand colour lives
+                // now — one stripe, structural rather than decorative, doing the
+                // job the cheese did on the burger.
+                //
+                // Drawn AFTER the puff so it covers where the three lobes meet
+                // it. With the puff on top, each lobe's bottom stroke crossed
+                // the band as a vertical seam and the hat looked cracked.
+                RoundedRectangle(cornerRadius: h * 0.03, style: .continuous)
+                    .fill(LK.Palette.heat)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: h * 0.03, style: .continuous)
+                            .stroke(ink, lineWidth: line)
+                    }
+                    .frame(width: w * 0.72, height: h * 0.11)
+                    .offset(y: h * 0.30)
+
             }
-            // `alignment: .top`, and it matters more than it looks.
-            //
-            // `.offset` does not participate in layout, so this ZStack sizes
-            // itself to its tallest *child* — the 0.38h crown — not to the
-            // 0.90h stack the offsets actually draw. Without an alignment the
-            // frame then centres that short box, pushing every layer down by
-            // (h - 0.38h)/2 and spilling the bottom bun 40pt past the frame,
-            // straight through the title underneath.
             .frame(width: w, height: h, alignment: .top)
             // Squash and stretch, anchored at the base — it settles like
             // something soft rather than scaling like a graphic.
@@ -214,7 +182,12 @@ struct SplashView: View {
                 y: breathing ? 0.99 : 1.02,
                 anchor: .bottom
             )
-            .overlay(alignment: .top) { steam.offset(y: -h * 0.16) }
+            // Steam still rises, but from beside the hat rather than out of
+            // the top of a bun. A chef is the one thing on screen that is
+            // actually cooking.
+            .overlay(alignment: .top) {
+                steam.offset(y: -h * 0.10)
+            }
         }
     }
 
@@ -314,89 +287,15 @@ private struct MouthCurve: Shape {
 }
 
 /// The top bun: a dome on a flat base.
-private struct TopBun: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        var p = Path()
-        p.move(to: CGPoint(x: 0, y: h))
-        p.addCurve(
-            to: CGPoint(x: w, y: h),
-            control1: CGPoint(x: -w * 0.02, y: -h * 0.33),
-            control2: CGPoint(x: w * 1.02, y: -h * 0.33)
-        )
-        p.closeSubpath()
-        return p
-    }
-}
 
 /// The bottom bun: flat on top, rounded underneath. Shallower than the crown —
 /// a burger whose halves match looks like a sandwich.
-private struct BottomBun: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        var p = Path()
-        p.move(to: CGPoint(x: 0, y: 0))
-        p.addLine(to: CGPoint(x: w, y: 0))
-        // Controls at 1.33h, not 1.9h. A cubic's midpoint is
-        // (p0 + 3c1 + 3c2 + p3) / 8, so 1.9 put the belly at 1.42× the rect —
-        // the shape drew well outside its own frame and collided with the title
-        // underneath it. 1.33 lands the curve exactly on h.
-        p.addCurve(
-            to: CGPoint(x: 0, y: 0),
-            control1: CGPoint(x: w * 1.04, y: h * 1.33),
-            control2: CGPoint(x: -w * 0.04, y: h * 1.33)
-        )
-        p.closeSubpath()
-        return p
-    }
-}
 
 /// Lettuce: straight along the top where it meets the patty, scalloped along
 /// the bottom where it hangs out of the bun.
-private struct Lettuce: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        var p = Path()
-        p.move(to: CGPoint(x: 0, y: 0))
-        p.addLine(to: CGPoint(x: w, y: 0))
-        p.addLine(to: CGPoint(x: w, y: h * 0.45))
-
-        // Five scallops back along the bottom.
-        let count = 5
-        let step = w / CGFloat(count)
-        for i in 0..<count {
-            let x = w - step * CGFloat(i)
-            p.addQuadCurve(
-                to: CGPoint(x: x - step, y: h * 0.45),
-                control: CGPoint(x: x - step / 2, y: h * 1.25)
-            )
-        }
-        p.closeSubpath()
-        return p
-    }
-}
 
 /// A cheese slice with two drips. Without them a yellow rectangle reads as
 /// paper; the drips are the entire tell.
-private struct Cheese: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        var p = Path()
-        p.move(to: CGPoint(x: 0, y: 0))
-        p.addLine(to: CGPoint(x: w, y: 0))
-        p.addLine(to: CGPoint(x: w, y: h * 0.50))
-        // Right drip, long.
-        p.addQuadCurve(to: CGPoint(x: w * 0.70, y: h * 0.50),
-                       control: CGPoint(x: w * 0.85, y: h * 1.30))
-        p.addLine(to: CGPoint(x: w * 0.46, y: h * 0.50))
-        // Left drip, shorter — matching drips look like a pennant.
-        p.addQuadCurve(to: CGPoint(x: w * 0.22, y: h * 0.50),
-                       control: CGPoint(x: w * 0.34, y: h * 1.05))
-        p.addLine(to: CGPoint(x: 0, y: h * 0.50))
-        p.closeSubpath()
-        return p
-    }
-}
 
 /// A single S-curl of steam. Two opposed quadratics — a straight line reads as
 /// a tally mark, and a full spiral reads as smoke.
@@ -416,3 +315,47 @@ private struct SteamCurl: Shape {
         return p
     }
 }
+
+/// The puffy crown of a chef's toque: three lobes across the top.
+///
+/// One dome would be a beanie. The lobes are what make it read as a toque at
+/// 190pt, and they are why this is a Shape rather than three overlapping
+/// circles — overlapping circles leave seams where the ink line crosses itself.
+private struct ToquePuff: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width, h = rect.height
+        // Sit the lobes on a baseline a little above the bottom so the band
+        // below can overlap without a gap showing between them.
+        let base = rect.minY + h * 0.92
+
+        p.move(to: CGPoint(x: rect.minX + w * 0.06, y: base))
+
+        // Left lobe. Controls at 1.35x the lobe height: a cubic's midpoint is
+        // (p0 + 3c1 + 3c2 + p3) / 8, so this lands the crown on the rect's top
+        // edge instead of overshooting it — the same arithmetic the old bun
+        // needed.
+        p.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.36, y: base),
+            control1: CGPoint(x: rect.minX - w * 0.04, y: rect.minY + h * 0.30),
+            control2: CGPoint(x: rect.minX + w * 0.40, y: rect.minY + h * 0.12)
+        )
+        // Centre lobe, tallest — it reaches the top of the rect.
+        p.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.64, y: base),
+            control1: CGPoint(x: rect.minX + w * 0.22, y: rect.minY - h * 0.22),
+            control2: CGPoint(x: rect.minX + w * 0.78, y: rect.minY - h * 0.22)
+        )
+        // Right lobe, mirroring the left.
+        p.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.94, y: base),
+            control1: CGPoint(x: rect.minX + w * 0.60, y: rect.minY + h * 0.12),
+            control2: CGPoint(x: rect.maxX + w * 0.04, y: rect.minY + h * 0.30)
+        )
+        p.addLine(to: CGPoint(x: rect.minX + w * 0.94, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX + w * 0.06, y: rect.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
