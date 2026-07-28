@@ -33,7 +33,7 @@ struct SplashView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 30) {
-                chefCharacter
+                chefIllustration
                     .frame(width: 190, height: 190)
                     .scaleEffect(landed ? 1 : 0.62)
                     .opacity(landed ? 1 : 0)
@@ -103,6 +103,31 @@ struct SplashView: View {
     /// black on cream reads as clip art; this sits in the same family as the
     /// app's ink.
     private let ink = Color(hex: 0x2E2216)
+
+    /// The chef, as artwork rather than as paths.
+    ///
+    /// Drawn by hand and dropped in as an asset. An earlier attempt rebuilt this
+    /// illustration in SwiftUI `Shape`s and it did not survive the translation —
+    /// flowing hair, a running stride and a lidded pot are not things Bézier
+    /// code writes well, and the result read as a pile of capsules.
+    ///
+    /// The source PNG sat on a 250/250/250 page. Keying that out by colour ate
+    /// her hat and jacket, which are also white; the background is removed by
+    /// flood-filling inward from the border instead, so only the page goes and
+    /// anything enclosed by her outline stays.
+    ///
+    /// Blink and steam are gone with the shapes. A flat image still lands,
+    /// breathes and scales, which is all a 1.6-second splash needs.
+    private var chefIllustration: some View {
+        Image("ChefRunning")
+            .resizable()
+            .scaledToFit()
+            .scaleEffect(
+                x: breathing ? 1.02 : 0.99,
+                y: breathing ? 0.99 : 1.02,
+                anchor: .bottom
+            )
+    }
 
     /// The chef.
     ///
