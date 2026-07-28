@@ -66,7 +66,13 @@ declare
   -- (ProfileRepository). A *cook's* avatar is public, and PhotoUploader puts it
   -- in kitchen-photos. Seeding into `avatars` produced a public URL that
   -- returned 400 for every cook, and a Polaroid frame with nothing in it.
-  v_av   text := 'https://niehxlaegsuhdqbyikut.supabase.co/storage/v1/object/public/kitchen-photos/seed/portraits/';
+  v_av   text := 'https://niehxlaegsuhdqbyikut.supabase.co/storage/v1/object/public/kitchen-photos/seed/portraits/portraits/';
+  -- The doubled path is real, not a typo. `supabase storage cp -r <dir> <dest>`
+  -- copies the directory *into* dest when dest already exists, and flat when it
+  -- does not — so a half-finished first upload left files at seed/portraits/
+  -- and the second run nested the full set under seed/portraits/portraits/.
+  -- Every cook resolves from the nested copy; the stragglers above it are
+  -- harmless orphans. Verified by requesting all 91 avatar URLs, not one.
   v_user uuid;
   v_kitchen uuid;
   k record;
