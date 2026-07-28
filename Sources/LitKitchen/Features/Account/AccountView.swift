@@ -126,8 +126,16 @@ struct AccountView: View {
             .padding(LK.Metrics.screenPadding)
         }
         .background(LK.Palette.ground)
+        // The sign-up sheet's failure was still on screen behind it after it
+        // closed — "That email address isn't accepted" sitting under a sign-in
+        // form that had never been submitted. An error belongs to the attempt
+        // that produced it, not to the screen it happened to be shown on.
+        .onAppear { session.reportAppleFailure(nil) }
         .sheet(isPresented: $showingSignUp) {
             SignUpView(session: session)
+        }
+        .onChange(of: showingSignUp) { _, showing in
+            if !showing { session.reportAppleFailure(nil) }
         }
     }
 

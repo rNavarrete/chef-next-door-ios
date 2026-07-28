@@ -37,10 +37,34 @@ public final class SessionController {
         self.client = client
     }
 
+    /// Marks that this *install* has run before.
+    ///
+    /// `UserDefaults` is wiped when an app is deleted; the keychain is not. That
+    /// asymmetry is the whole point — it is the only signal available that the
+    /// app was reinstalled rather than merely relaunched.
+    private static let installMarker = "litkitchen.installSeen"
+
     /// Restores an existing session, if there is one. Supabase persists the
     /// refresh token in the keychain, so an anonymous identity survives
     /// relaunch — losing it would orphan the buyer's claims.
     public func restore() async {
+        // Deleting the app has to sign you out.
+        //
+        // Supabase stores its session in the keychain, which **survives app
+        // deletion on iOS**. Verified: uninstalled, reinstalled, still signed in
+        // as the previous account. Someone hands a phone over, or deletes the
+        // app to "log out" and sells it, and the next install opens into a
+        // stranger's inbox, orders and saved address.
+        //
+        // Apple's guidance is to clear credentials on first run after install,
+        // and this is exactly the case it is written for.
+        if !UserDefaults.standard.bool(forKey: Self.installMarker) {
+            UserDefaults.standard.set(true, forKey: Self.installMarker)
+            try? await client.auth.signOut()
+            userID = nil; cookID = nil; email = nil; isAnonymous = true
+            return
+        }
+
         if let session = try? await client.auth.session {
             userID = session.user.id
             isAnonymous = session.user.isAnonymous

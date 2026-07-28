@@ -25,7 +25,12 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
     public let lastConfirmedAt: Date?
     public let freshness: FreshnessTier?
     public let itemCount: Int
+    /// Dish names resolved English-first (`name_en ?? name_es`). Read through
+    /// `localizedHeadlineItems`, never directly — see that property.
     public let headlineItems: [String]?
+    /// The same list resolved Spanish-first (`name_es ?? name_en`). Same order,
+    /// same length.
+    public let headlineItemsES: [String]?
     /// Photo of the cheapest available dish. Cook-submitted in production; the
     /// dev seed uses keyword placeholders purely to exercise layout.
     public let headlinePhoto: String?
@@ -52,6 +57,7 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
         case freshness
         case itemCount = "item_count"
         case headlineItems = "headline_items"
+        case headlineItemsES = "headline_items_es"
         case headlinePhoto = "headline_photo"
         case minPriceCents = "min_price_cents"
         case minPriceUnit = "min_price_unit"
@@ -65,6 +71,24 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
     /// The radius of the privacy cell, in metres. Drawn on the map as a halo so
     /// the uncertainty is *visible* — a buyer reads an area, not a house.
     public static let fuzzRadiusM: Double = 200
+
+    /// The dish names in the reader's language. **Every surface must use this**
+    /// rather than `headlineItems`.
+    ///
+    /// The server sends both resolutions because it cannot know the reader's
+    /// locale (061). Before that it sent one list built with
+    /// `coalesce(name_es, name_en)` — Spanish for everybody — while the dish
+    /// page used `MenuItem.displayName`, which picks by locale. The same dish
+    /// therefore carried two different names one tap apart: "Stuffed poblano"
+    /// on the feed card, "Chile relleno" on its own page.
+    ///
+    /// The fallback chain covers a client that outlives its server: if the
+    /// preferred array is missing, either other list still names the dish.
+    public var localizedHeadlineItems: [String]? {
+        let wantsSpanish = Locale.current.language.languageCode?.identifier.hasPrefix("es") ?? false
+        let preferred = wantsSpanish ? headlineItemsES : headlineItems
+        return preferred ?? headlineItems ?? headlineItemsES
+    }
 
     public var isCooking: Bool { sessionID != nil && freshness != nil && freshness != .out }
     public var isVerified: Bool { permitStatus == .verified }

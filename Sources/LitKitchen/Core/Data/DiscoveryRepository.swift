@@ -126,8 +126,12 @@ public final class InMemoryDiscoveryRepository: DiscoveryRepository {
     public func search(_ query: String, near: Coordinate, radiusM: Int) async throws -> [DiscoveryResult] {
         let q = query.lowercased()
         return rows.filter { row in
-            row.displayName.lowercased().contains(q)
-                || (row.headlineItems ?? []).contains { $0.lowercased().contains(q) }
+            // Both lists, not the localized one: `search_cooks` matches
+            // `name_en` *and* `name_es`, so someone searching "birria" finds
+            // the cook whose menu spells it only in the other language.
+            let names = (row.headlineItems ?? []) + (row.headlineItemsES ?? [])
+            return row.displayName.lowercased().contains(q)
+                || names.contains { $0.lowercased().contains(q) }
         }
     }
 

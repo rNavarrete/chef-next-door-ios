@@ -313,7 +313,7 @@ private struct LitFollowCard: View {
                     .font(LK.Typography.dishNameCard)
                     .foregroundStyle(LK.Palette.ink)
 
-                if let items = result.headlineItems, !items.isEmpty {
+                if let items = result.localizedHeadlineItems, !items.isEmpty {
                     Text(items.prefix(2).joined(separator: " · "))
                         .font(LK.Typography.meta)
                         .foregroundStyle(LK.Palette.inkTertiary)
@@ -355,7 +355,7 @@ private struct DarkFollowRow: View {
                 Text(result.displayName)
                     .font(LK.Typography.ui(16, weight: .semibold))
                     .foregroundStyle(LK.Palette.inkQuiet)
-                Text(result.headlineItems?.first ?? result.neighborhood)
+                Text(result.localizedHeadlineItems?.first ?? result.neighborhood)
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
                     .lineLimit(1)

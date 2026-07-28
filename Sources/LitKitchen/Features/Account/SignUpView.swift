@@ -109,7 +109,11 @@ struct SignUpView: View {
                     .buttonStyle(.plain)
                     .disabled(!canSubmit)
 
-                    Text("You'll need a permit to sell prepared food. We'll ask for it next — you can start building your menu before it comes through.")
+                    // Was "You'll need a permit to sell prepared food. We'll ask
+                    // for it next" — under a heading that had just said an
+                    // account is for messaging and orders. A buyer signing up to
+                    // order dinner was being told they need a health permit.
+                    Text("Browsing is anonymous. An account only matters when you want to talk to a cook.")
                         .font(LK.Typography.meta)
                         .foregroundStyle(LK.Palette.inkTertiary)
                         .fixedSize(horizontal: false, vertical: true)

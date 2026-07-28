@@ -22,6 +22,7 @@ extension DiscoveryResult {
                 freshness: .lit,
                 itemCount: 2,
                 headlineItems: ["Tamal de puerco", "Tamal de rajas con queso"],
+                headlineItemsES: ["Tamal de puerco", "Tamal de rajas con queso"],
                 headlinePhoto: nil,
                 minPriceCents: 300, minPriceUnit: .each, minPriceMinQty: 3
             ),
@@ -40,6 +41,7 @@ extension DiscoveryResult {
                 freshness: .unconfirmed,
                 itemCount: 1,
                 headlineItems: ["Birria de res"],
+                headlineItemsES: ["Birria de res"],
                 headlinePhoto: nil,
                 minPriceCents: 400, minPriceUnit: .each, minPriceMinQty: 1
             ),
@@ -55,6 +57,7 @@ extension DiscoveryResult {
                 sessionID: nil, openedAt: nil, lastConfirmedAt: nil, freshness: nil,
                 itemCount: 1,
                 headlineItems: ["Masa madre"],
+                headlineItemsES: ["Masa madre"],
                 headlinePhoto: nil,
                 minPriceCents: 900, minPriceUnit: .loaf, minPriceMinQty: 1
             ),

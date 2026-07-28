@@ -339,7 +339,7 @@ struct LitKitchenCard: View {
             .opacity(isUnconfirmed ? 0.7 : 1)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(result.headlineItems?.first ?? result.displayName)
+                Text(result.localizedHeadlineItems?.first ?? result.displayName)
                     .font(LK.Typography.dishNameCard)
                     .tracking(-0.475)          // -0.025em at 19pt
                     .lineSpacing(19 * 0.15)
@@ -415,7 +415,7 @@ struct LitKitchenCard: View {
     }
 
     private var accessibilityText: String {
-        let dish = result.headlineItems?.first ?? result.displayName
+        let dish = result.localizedHeadlineItems?.first ?? result.displayName
         let state = isUnconfirmed ? "unconfirmed, ask if they're still cooking" : "cooking"
         let price = result.startingPrice.map { ", \($0.displayWithMinimum)" } ?? ""
         return "\(dish), \(state), \(metaText)\(price)"

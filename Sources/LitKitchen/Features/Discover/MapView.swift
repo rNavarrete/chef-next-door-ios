@@ -397,7 +397,7 @@ private struct MapPin: View {
     /// reliably drops the part that identifies the food and leaves a
     /// preposition dangling.
     private var shortDish: String {
-        guard let first = result.headlineItems?.first else { return result.neighborhood }
+        guard let first = result.localizedHeadlineItems?.first else { return result.neighborhood }
         // Words that carry no meaning alone and must never end the label.
         let connectors: Set<String> = ["de", "del", "la", "el", "los", "las",
                                        "con", "y", "a", "en", "al", "of", "in", "and"]
@@ -455,7 +455,7 @@ private struct MapDetailSheet: View {
                     // a cook with two churros variants — and rendering the raw
                     // list gives "Churros · Churros", which reads as a bug even
                     // though the data is fine.
-                    if let items = result.headlineItems.map(NSOrderedSet.init(array:))
+                    if let items = result.localizedHeadlineItems.map(NSOrderedSet.init(array:))
                         .map({ $0.array.compactMap { $0 as? String } }), !items.isEmpty {
                         Text(items.prefix(2).joined(separator: " · "))
                             .font(LK.Typography.meta)
@@ -603,7 +603,7 @@ private struct ClusterListSheet: View {
                                             .minimumScaleFactor(0.8)
                                     }
                                 }
-                                Text(result.headlineItems?.first ?? result.displayName)
+                                Text(result.localizedHeadlineItems?.first ?? result.displayName)
                                     .font(LK.Typography.dishNameRow)
                                     .foregroundStyle(LK.Palette.ink)
                                     .lineLimit(1)

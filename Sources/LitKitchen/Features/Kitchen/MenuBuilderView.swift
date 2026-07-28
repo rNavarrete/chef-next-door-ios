@@ -2,6 +2,8 @@ import SwiftUI
 
 /// New or existing dish. The structured-price block is the point of this screen.
 struct MenuBuilderView: View {
+    /// Keyed by the field's own title — there are only two, and they are fixed.
+    @FocusState private var priceFieldFocus: String?
     @Environment(\.dismiss) private var dismiss
     @State private var draft: MenuItemDraft
     let cookID: UUID
@@ -171,12 +173,18 @@ struct MenuBuilderView: View {
 
     private var nameSection: some View {
         GroupedCard {
-            LabeledField(label: "Name", text: $draft.nameEN, placeholder: "Tamal de puerco")
+            // Placeholders match the columns they write to. They were swapped:
+            // "Name" binds `name_en` but was prompted with "Tamal de puerco",
+            // and "Also called…" binds `name_es` but was prompted with "pork
+            // tamale". A cook following the prompts filled both columns
+            // backwards — which is the opposite of every seeded dish, and makes
+            // the two names disagree everywhere they are read apart.
+            LabeledField(label: "Name", text: $draft.nameEN, placeholder: "Pork tamale")
             Divider().overlay(LK.Palette.hairline)
             // The bilingual synonym field. Not "translation" — titles in this
             // market genuinely carry both, and this is what feeds the search
             // synonym expansion buyers see (`también: …`).
-            LabeledField(label: "Also called…", text: $draft.nameES, placeholder: "pork tamale")
+            LabeledField(label: "Also called…", text: $draft.nameES, placeholder: "Tamal de puerco")
             Divider().overlay(LK.Palette.hairline)
 
             // `MenuItem.description` has existed since the model was written and
@@ -226,7 +234,8 @@ struct MenuBuilderView: View {
                 HStack(spacing: 10) {
                     priceField(title: "Amount", text: $draft.amountText, placeholder: "3.00", isFocusedStyle: true)
                         .keyboardType(.decimalPad)
-                    priceField(title: "Min", text: $draft.minQuantityText, placeholder: "1")
+                    priceField(title: "Min", text: $draft.minQuantityText, placeholder: "1",
+                               digitsOnly: true, clearsDefaultOnFocus: "1")
                         .keyboardType(.numberPad)
                 }
                 .padding(14)
@@ -270,11 +279,26 @@ struct MenuBuilderView: View {
         }
     }
 
+    /// Numeric entry for money and counts.
+    ///
+    /// `digitsOnly` exists because the Min field accepted anything at all. It
+    /// arrives pre-filled with "1", and a plain `TextField` *appends* — so
+    /// tapping it and typing "2" produced **12**, and a cook who meant "min 2"
+    /// silently listed "min 12". Worse, non-numeric text parsed to nothing and
+    /// the minimum vanished from the live preview with no error: a typo'd "1O"
+    /// meant no minimum at all, silently.
+    ///
+    /// Two fixes, because either alone leaves a hole. The keypad and the filter
+    /// stop letters getting in; clearing a pristine default on focus stops the
+    /// append. Once the cook has actually edited the value it is theirs, and
+    /// focusing again does not wipe it.
     private func priceField(
         title: String,
         text: Binding<String>,
         placeholder: String,
-        isFocusedStyle: Bool = false
+        isFocusedStyle: Bool = false,
+        digitsOnly: Bool = false,
+        clearsDefaultOnFocus: String? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
@@ -285,6 +309,19 @@ struct MenuBuilderView: View {
             TextField(placeholder, text: text)
                 .font(LK.Typography.navBarEmphasis)
                 .monospacedDigit()
+                .keyboardType(digitsOnly ? .numberPad : .decimalPad)
+                .focused($priceFieldFocus, equals: title)
+                .onChange(of: priceFieldFocus) { _, now in
+                    guard now == title, let pristine = clearsDefaultOnFocus,
+                          text.wrappedValue == pristine else { return }
+                    text.wrappedValue = ""
+                }
+                .onChange(of: text.wrappedValue) { _, value in
+                    let cleaned = digitsOnly
+                        ? value.filter(\.isNumber)
+                        : value.filter { $0.isNumber || $0 == "." }
+                    if cleaned != value { text.wrappedValue = cleaned }
+                }
                 .padding(.horizontal, 11)
                 .padding(.vertical, 9)
                 .background(LK.Palette.ground, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
