@@ -553,52 +553,73 @@ private struct MapDetailSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                DishPhoto(urlString: result.headlinePhoto, size: 104, isLit: result.isCooking)
+            // The whole card opens the kitchen, not just the button below.
+            // Everything here — the photo, the name, the dishes, the price —
+            // looked like a summary you could tap into and did nothing; the
+            // only live target was the button, which is the one thing already
+            // labelled with what it does.
+            //
+            // Deliberately separate from that button. This is "show me this
+            // kitchen", which is the same wherever the light is. The button is
+            // the *action*, and that does differ: order from a lit cook, follow
+            // a dark one.
+            Button {
+                showingDetail = true
+            } label: {
+                VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    DishPhoto(urlString: result.headlinePhoto, size: 104, isLit: result.isCooking)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
-                        LampIndicator(tier: tier, size: 8)
-                        Text(result.availabilityLabel)
-                            .font(LK.Typography.caps)
-                            .textCase(.uppercase)
-                            .tracking(0.3)
-                            .foregroundStyle(tier == .unconfirmed ? LK.Palette.inkTertiary : LK.Palette.heatInk)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.8)
-                    }
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 6) {
+                            LampIndicator(tier: tier, size: 8)
+                            Text(result.availabilityLabel)
+                                .font(LK.Typography.caps)
+                                .textCase(.uppercase)
+                                .tracking(0.3)
+                                .foregroundStyle(tier == .unconfirmed ? LK.Palette.inkTertiary : LK.Palette.heatInk)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                        }
 
-                    Text(result.displayName)
-                        .font(LK.Typography.dishNameCard)
-                        .foregroundStyle(LK.Palette.ink)
-
-                    // Deduped: two menu rows can legitimately share a name —
-                    // a cook with two churros variants — and rendering the raw
-                    // list gives "Churros · Churros", which reads as a bug even
-                    // though the data is fine.
-                    if let items = result.localizedHeadlineItems.map(NSOrderedSet.init(array:))
-                        .map({ $0.array.compactMap { $0 as? String } }), !items.isEmpty {
-                        Text(items.prefix(2).joined(separator: " · "))
-                            .font(LK.Typography.meta)
-                            .foregroundStyle(LK.Palette.inkTertiary)
-                            .lineLimit(1)
-                    }
-
-                    if let price = result.startingPrice {
-                        Text(price.displayWithMinimum)
-                            .font(LK.Typography.bodyEmphasis)
-                            .monospacedDigit()
+                        Text(result.displayName)
+                            .font(LK.Typography.dishNameCard)
                             .foregroundStyle(LK.Palette.ink)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
 
-            // Deliberately vague: the exact address is not ours to show until
-            // the cook confirms a claim.
-            Text("Somewhere in \(result.neighborhood) · \(result.distanceLabel(from: origin))")
-                .font(LK.Typography.meta)
-                .foregroundStyle(LK.Palette.inkTertiary)
+                        // Deduped: two menu rows can legitimately share a name —
+                        // a cook with two churros variants — and rendering the raw
+                        // list gives "Churros · Churros", which reads as a bug even
+                        // though the data is fine.
+                        if let items = result.localizedHeadlineItems.map(NSOrderedSet.init(array:))
+                            .map({ $0.array.compactMap { $0 as? String } }), !items.isEmpty {
+                            Text(items.prefix(2).joined(separator: " · "))
+                                .font(LK.Typography.meta)
+                                .foregroundStyle(LK.Palette.inkTertiary)
+                                .lineLimit(1)
+                        }
+
+                        if let price = result.startingPrice {
+                            Text(price.displayWithMinimum)
+                                .font(LK.Typography.bodyEmphasis)
+                                .monospacedDigit()
+                                .foregroundStyle(LK.Palette.ink)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                // Deliberately vague: the exact address is not ours to show until
+                // the cook confirms a claim.
+                Text("Somewhere in \(result.neighborhood) · \(result.distanceLabel(from: origin))")
+                    .font(LK.Typography.meta)
+                    .foregroundStyle(LK.Palette.inkTertiary)
+                }
+                // Without this only the glyphs are tappable and the gaps
+                // between them fall through — the same defect that made the
+                // Apple sign-in button dead.
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
             // Had an empty body — `// Claim flow lands in M3.` — so it was a
             // control that looked tappable and did nothing, on the surface most
