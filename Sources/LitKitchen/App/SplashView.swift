@@ -34,7 +34,10 @@ struct SplashView: View {
 
             VStack(spacing: 30) {
                 chefIllustration
-                    .frame(width: 190, height: 190)
+                    // 230, not 190. The artwork carries its own accents and
+                    // negative space, so it needs more room than the drawn
+                    // character did to read at the same weight.
+                    .frame(width: 230, height: 230)
                     .scaleEffect(landed ? 1 : 0.62)
                     .opacity(landed ? 1 : 0)
 
