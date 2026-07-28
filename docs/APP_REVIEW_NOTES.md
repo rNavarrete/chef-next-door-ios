@@ -7,16 +7,26 @@ rest of this file is for you, not for Apple.
 
 ## Review Notes (paste this)
 
-Lit Kitchen shows which permitted home cooks near you are cooking right now, in
-the San Gabriel Valley, California. No payments are taken in the app — buyers
+Lit Kitchen shows which home cooks near you are cooking right now, across
+Southern California. No payments are taken in the app — buyers
 and cooks arrange everything by message and pay each other directly.
 
 **IMPORTANT — please search for a location first.** The app shows kitchens near
-you, and all current kitchens are in the San Gabriel Valley, about 350 miles
-south of Cupertino. From the **Map** tab, tap the search bar at the top and
-enter **91722**, then choose "91722 · Covina". The Cooking tab will then show
-the kitchen. Without this step both tabs are correctly empty, because nobody is
-cooking near you.
+you, and every kitchen is in Southern California, roughly 300 miles south of
+Cupertino. From the **Map** tab, tap the search bar at the top and enter
+**91722**, then choose "91722 · Covina". The Cooking tab will then fill. Without
+this step both tabs are correctly empty, because nobody is cooking near you —
+that is the app working, not a failure.
+
+Other ZIPs with kitchens, if you would like to see the location search working:
+**90013** (downtown Los Angeles, the densest), **90401** (Santa Monica),
+**92701** (Santa Ana), **92101** (San Diego).
+
+**The kitchens you will see are demo content.** This app has not launched, so
+the cooks, menus, stories and prices are invented, and the profile photos are
+placeholders that do not match the names. They are there so the app can be
+reviewed as it will actually be used, rather than as an empty list. No real
+person is represented, and nothing is for sale.
 
 You may decline the location permission — searching a ZIP code or city works
 just as well and is a supported way to use the app.
@@ -26,8 +36,15 @@ Email: demo@litkitchen.app
 Password: DEMO_PASSWORD
 
 Signing in with that account and opening the **Account** tab shows the cook side:
-the burner dial that turns a kitchen's light on and off, the menu builder, and
-the kitchen's conversations.
+the burner dial that turns a kitchen's light on and off, the menu builder, the
+kitchen's conversations, and a QR code a cook can share with their own buyers.
+
+The Cooking tab also has filters — permitted, still cooking, under 2 miles, well
+reviewed. "Permitted" and "Well reviewed" both show a count of 0 and are
+disabled, because no demo kitchen claims a permit and none has been reviewed.
+That is deliberate rather than broken: a permit badge and a rating are the two
+things in this app that must never be fabricated, so they are empty until they
+are earned.
 
 **About permits.** Cooks in California need a MEHKO permit from their county to
 sell home-cooked meals. When a cook enters a permit number we check it against
