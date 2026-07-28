@@ -118,10 +118,6 @@ struct AccountView: View {
                     }
                     .buttonStyle(.plain)
                 }
-
-                #if DEBUG
-                devHint
-                #endif
             }
             .padding(LK.Metrics.screenPadding)
         }
@@ -139,31 +135,4 @@ struct AccountView: View {
         }
     }
 
-    #if DEBUG
-    /// Debug-only shortcut into the seeded cooks. Never compiled into a release
-    /// build — the credentials are dev seed data.
-    private var devHint: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("Dev — seeded cooks")
-            Text("Password for all: litkitchen")
-                .font(LK.Typography.meta)
-                .foregroundStyle(LK.Palette.inkTertiary)
-            FlowLayout(spacing: 7) {
-                ForEach(["yolanda", "marisol", "rosa", "beto", "priya"], id: \.self) { name in
-                    Button("\(name)@seed.test") {
-                        email = "\(name)@seed.test"
-                        password = "litkitchen"
-                    }
-                    .font(LK.Typography.meta)
-                    .foregroundStyle(LK.Palette.inkQuiet)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(LK.Palette.chip, in: Capsule())
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(.top, 8)
-    }
-    #endif
 }
