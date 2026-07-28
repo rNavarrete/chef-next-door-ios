@@ -60,9 +60,12 @@ in the menu at the top right of the Kitchen tab.
 
 ## For you — before you submit
 
-- [ ] Host `docs/privacy.html` and put the URL in App Store Connect. Replace
-      every highlighted placeholder in it first.
-- [ ] Fill in Support URL and Marketing URL.
+- [x] Privacy policy URL — <https://rnavarrete.github.io/chef-next-door/privacy.html>
+      Hosted from `rNavarrete/chef-next-door`, which is where the live copy
+      lives now. Every placeholder is filled.
+- [x] Support URL — <https://rnavarrete.github.io/chef-next-door/>
+      Marketing URL is optional and still unset; leave it blank rather than
+      pointing it at the support page.
 - [ ] Complete App Privacy (the nutrition labels). They must match
       `PrivacyInfo.xcprivacy`: email, name, phone, physical address, precise
       location, photos, messages, other user content, user ID, device ID — all

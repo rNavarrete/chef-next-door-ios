@@ -74,9 +74,12 @@ Fill these in App Store Connect before submitting for beta review:
       whether this passes: the reviewer is in Cupertino, every kitchen is in
       Southern California, and without being told to search **91722** on the
       Map tab they open an empty app and reasonably fail it as incomplete.
-- [ ] **Privacy policy URL** — `docs/privacy.html` is written but not hosted,
-      and still has placeholders for the legal entity and contact address.
-      This is the one genuinely unfinished item.
+- [x] **Privacy policy URL** — <https://rnavarrete.github.io/chef-next-door/privacy.html>
+      Hosted from its own public repo, `rNavarrete/chef-next-door`. Separate
+      from this one on purpose: Pages serves from a repo, and two static pages
+      are not a reason to publish the schema and the address-disclosure logic.
+      **That copy is canonical.** `docs/privacy.html` here is the draft it came
+      from; change the live one first, then copy back.
 
 Beta review usually turns around in under a day. Later builds of the same
 version go out without re-review.
