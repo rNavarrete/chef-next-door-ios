@@ -52,9 +52,34 @@ Screenshots help more than descriptions.
       shutting 86 of 90 overnight; migration 066 re-confirms the fictional ones
       every four hours. Scoped to seed accounts — verified it modifies zero real
       cook sessions. Remove it before launch, along with the seed itself.
-- [ ] Decide internal vs external. Internal is instant but the tester becomes a
-      User on your App Store Connect account. External needs one Beta App
-      Review pass but hands over nothing except the app.
+- [x] External testing chosen. Testers get a link and nothing else — no access
+      to your App Store Connect account.
+
+## Beta App Review — what external testing actually requires
+
+The first external build is reviewed. It is lighter than full App Store review,
+but it is a human opening your app, so the reviewer-facing work matters now
+rather than later.
+
+Fill these in App Store Connect before submitting for beta review:
+
+- [ ] **Beta App Description** — what the app is, two or three sentences.
+- [ ] **Feedback email** — where tester reports land.
+- [ ] **Contact info** — first name, last name, phone, email. Used only if the
+      reviewer needs to reach you.
+- [ ] **Sign-in required: YES**, with the demo account:
+      `demo@litkitchen.app` / `DEMO_PASSWORD`
+- [ ] **Review notes** — paste the Review Notes section from
+      `docs/APP_REVIEW_NOTES.md`. Its first paragraph is the one that decides
+      whether this passes: the reviewer is in Cupertino, every kitchen is in
+      Southern California, and without being told to search **91722** on the
+      Map tab they open an empty app and reasonably fail it as incomplete.
+- [ ] **Privacy policy URL** — `docs/privacy.html` is written but not hosted,
+      and still has placeholders for the legal entity and contact address.
+      This is the one genuinely unfinished item.
+
+Beta review usually turns around in under a day. Later builds of the same
+version go out without re-review.
 
 ## Known, so nobody reports them as new
 
