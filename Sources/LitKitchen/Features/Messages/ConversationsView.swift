@@ -25,6 +25,24 @@ final class ConversationsViewModel {
 
     var totalUnread: Int { threads.reduce(0) { $0 + $1.unread } }
 
+    /// Clears a conversation from this person's list.
+    ///
+    /// Removed locally first so the row goes on the tap rather than after a
+    /// round trip — this is a tidying gesture and any lag reads as a dead
+    /// control. On failure the reload puts it back, which is the honest
+    /// outcome: nothing was destroyed, so nothing needs recovering.
+    func hide(_ thread: Conversation) async {
+        threads.removeAll { $0.id == thread.id }
+        do {
+            try await repository.hideConversation(thread.id)
+        } catch {
+            errorMessage = UserFacingError.message(
+                for: error, fallback: "Couldn't remove that conversation."
+            )
+            await load()
+        }
+    }
+
     func load() async {
         isLoading = true
         defer { isLoading = false }
@@ -180,6 +198,14 @@ struct ConversationsView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    // No confirmation: nothing is destroyed. The other party
+                    // keeps their copy and a new message brings this back, so
+                    // an "are you sure?" would overstate what just happened.
+                    .contextMenu {
+                        Button("Delete conversation", systemImage: "trash", role: .destructive) {
+                            Task { await model.hide(thread) }
+                        }
+                    }
 
                     Rectangle()
                         .fill(LK.Palette.hairline)

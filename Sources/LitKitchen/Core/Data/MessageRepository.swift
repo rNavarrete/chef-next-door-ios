@@ -231,6 +231,14 @@ public protocol MessageRepository: AnyObject, Sendable {
     func blockedBuyers() async throws -> [BlockedBuyer]
     func reportBuyer(in threadID: UUID, kind: BuyerReportKind, note: String?, alsoBlock: Bool) async throws
 
+    /// Removes a conversation from *this* user's list.
+    ///
+    /// Not a delete: the other party keeps their copy, and it returns for both
+    /// if either speaks again (064). Erasing a cook's record of an order from
+    /// the buyer's side would destroy someone else's data, which is a different
+    /// feature and not one this app should have.
+    func hideConversation(_ threadID: UUID) async throws
+
     // MARK: - Ordering in the thread (043)
 
     /// Buyer side. Posts a priced order into the thread, opening it if needed.
@@ -376,6 +384,13 @@ public final class SupabaseMessageRepository: MessageRepository {
         case "no_profile": return .needsProfile
         default:           return nil
         }
+    }
+
+    public func hideConversation(_ threadID: UUID) async throws {
+        struct Params: Encodable { let p_conversation: UUID }
+        try await client
+            .rpc("hide_conversation", params: Params(p_conversation: threadID))
+            .execute()
     }
 
     public func blockBuyer(in threadID: UUID) async throws {
@@ -640,6 +655,10 @@ public final class InMemoryMessageRepository: MessageRepository, @unchecked Send
 
     public func gate() async throws -> MessagingGate? {
         lock.withLock { gateState }
+    }
+
+    public func hideConversation(_ threadID: UUID) async throws {
+        threads.removeAll { $0.id == threadID }
     }
 
     public func blockBuyer(in threadID: UUID) async throws {
