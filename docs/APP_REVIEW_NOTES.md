@@ -7,23 +7,33 @@ rest of this file is for you, not for Apple.
 
 ## Review Notes (paste this)
 
-Chef Next Door shows which home cooks near you are cooking right now, across
-Southern California. No payments are taken in the app — buyers
-and cooks arrange everything by message and pay each other directly.
+Plain text, no asterisks. App Store Connect renders this field literally, so
+markdown emphasis reaches the reviewer as `**IMPORTANT**` — which is a strange
+first impression to make on the person deciding whether the app ships.
 
-**IMPORTANT — please search for a location first.** The app shows kitchens near
+The ZIP counts below were verified against the live database on 28 July 2026:
+Covina 14, downtown LA 28, Santa Monica 10, Santa Ana 10, San Diego 2, all
+within ten miles. Re-check before submitting if the seed has been touched. A
+review note that sends a reviewer to an empty ZIP is worse than one that never
+mentioned it.
+
+Chef Next Door shows which home cooks near you are cooking right now, across
+Southern California. No payments are taken in the app — buyers and cooks
+arrange everything by message and pay each other directly.
+
+IMPORTANT — PLEASE SEARCH FOR A LOCATION FIRST. The app shows kitchens near
 you, and every kitchen is in Southern California, roughly 300 miles south of
-Cupertino. From the **Map** tab, tap the search bar at the top and enter
-**91722**, then choose "91722 · Covina". The Cooking tab will then fill. Without
-this step both tabs are correctly empty, because nobody is cooking near you —
-that is the app working, not a failure.
+Cupertino. From the Map tab, tap the search bar at the top and enter 91722,
+then choose "91722 - Covina". The Cooking tab will then fill. Without this step
+both tabs are correctly empty, because nobody is cooking near you — that is the
+app working, not a failure.
 
 Other ZIPs with kitchens, if you would like to see the location search working:
-**90013** (downtown Los Angeles, the densest), **90401** (Santa Monica),
-**92701** (Santa Ana), **92101** (San Diego).
+90013 (downtown Los Angeles, the densest), 90401 (Santa Monica), 92701 (Santa
+Ana), 92101 (San Diego).
 
-**The kitchens you will see are demo content.** This app has not launched, so
-the cooks, menus, stories and prices are invented, and the profile photos are
+THE KITCHENS YOU WILL SEE ARE DEMO CONTENT. This app has not launched, so the
+cooks, menus, stories and prices are invented, and the profile photos are
 placeholders that do not match the names. They are there so the app can be
 reviewed as it will actually be used, rather than as an empty list. No real
 person is represented, and nothing is for sale.
@@ -31,30 +41,30 @@ person is represented, and nothing is for sale.
 You may decline the location permission — searching a ZIP code or city works
 just as well and is a supported way to use the app.
 
-**Demo cook account**
+DEMO COOK ACCOUNT
 Email: demo@litkitchen.app
 Password: DEMO_PASSWORD
 
-Signing in with that account and opening the **Account** tab shows the cook side:
+Signing in with that account and opening the Account tab shows the cook side:
 the burner dial that turns a kitchen's light on and off, the menu builder, the
 kitchen's conversations, and a QR code a cook can share with their own buyers.
 
-The Cooking tab also has filters — permitted, still cooking, under 2 miles, well
-reviewed. "Permitted" and "Well reviewed" both show a count of 0 and are
+The Cooking tab also has filters — permitted, still cooking, under 2 miles,
+well reviewed. "Permitted" and "Well reviewed" both show a count of 0 and are
 disabled, because no demo kitchen claims a permit and none has been reviewed.
 That is deliberate rather than broken: a permit badge and a rating are the two
 things in this app that must never be fabricated, so they are empty until they
 are earned.
 
-**About permits.** Cooks in California need a MEHKO permit from their county to
+ABOUT PERMITS. Cooks in California need a MEHKO permit from their county to
 sell home-cooked meals. When a cook enters a permit number we check it against
 Los Angeles County's published register before they can finish setting up, and
 only a matched permit earns a badge. The demo account deliberately claims no
-permit, so you can see the un-badged state; entering the number **PR0313409**
+permit, so you can see the un-badged state; entering the number PR0313409
 during kitchen setup will show a successful match.
 
-**Account deletion** is at Account → Delete my account, and for a signed-in cook
-in the menu at the top right of the Kitchen tab.
+ACCOUNT DELETION is at Account, then Delete my account — and for a signed-in
+cook, in the menu at the top right of the Kitchen tab.
 
 ---
 
