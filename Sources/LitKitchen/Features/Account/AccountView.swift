@@ -1,0 +1,161 @@
+import SwiftUI
+
+/// Sign in, or make an account. Nothing about kitchens.
+///
+/// This replaces `CookSignInView`, which was the app's only full sign-in — with
+/// email *and* password — and was framed entirely as "Your kitchen: sign in to
+/// turn your light on, manage your menu". Two things were wrong with that.
+///
+/// **An account is a buyer thing first.** Being a cook is owning a `cooks` row,
+/// which is an upgrade on top of an account, not a parallel identity. Asking
+/// somebody to declare themselves a cook before they can sign in inverts the
+/// model.
+///
+/// **It stranded people.** Anyone who made an account with an email — through
+/// "Use an email instead" in the profile sheet — and later signed out had to go
+/// to a tab marked with a stove to get back in, because the profile sheet only
+/// offers Apple. There was no neutral way back into an existing account.
+struct AccountView: View {
+    @Bindable var session: SessionController
+
+    @State private var email = ""
+    @State private var password = ""
+    @State private var isWorking = false
+    @State private var showingSignUp = false
+
+    private var canSubmit: Bool {
+        !email.isEmpty && !password.isEmpty && !isWorking
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: LK.Metrics.blockSpacing) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Your account")
+                        .font(LK.Typography.screenTitle)
+                        .foregroundStyle(LK.Palette.ink)
+                    Text("Sign in to message kitchens, keep your orders, and save the cooks you like.")
+                        .font(LK.Typography.body)
+                        .foregroundStyle(LK.Palette.inkTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 4)
+
+                GroupedCard {
+                    LabeledField(
+                        label: "Email", text: $email,
+                        placeholder: "you@example.com",
+                        capitalization: .never, keyboard: .emailAddress
+                    )
+                    Divider().overlay(LK.Palette.hairline)
+                    HStack(spacing: 12) {
+                        Text("Password")
+                            .font(LK.Typography.body)
+                            .foregroundStyle(LK.Palette.ink)
+                            .frame(width: 96, alignment: .leading)
+                        SecureField("••••••••", text: $password)
+                            .font(LK.Typography.body)
+                            .textContentType(.password)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                }
+
+                if let error = session.signInError, !error.isEmpty {
+                    Text(error)
+                        .font(LK.Typography.meta)
+                        .foregroundStyle(LK.Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    isWorking = true
+                    Task {
+                        await session.signIn(email: email, password: password)
+                        isWorking = false
+                    }
+                } label: {
+                    Group {
+                        if isWorking {
+                            ProgressView().tint(LK.Palette.inkOnAction)
+                        } else {
+                            Text("Sign in").font(LK.Typography.navBarEmphasis)
+                        }
+                    }
+                    .foregroundStyle(LK.Palette.inkOnAction)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(
+                        canSubmit ? LK.Palette.action : LK.Palette.chip,
+                        in: RoundedRectangle(cornerRadius: LK.Metrics.radiusButton, style: .continuous)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSubmit)
+
+                AppleSignInButton(session: session)
+
+                Divider().overlay(LK.Palette.hairline).padding(.vertical, 2)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("New here?")
+                        .font(LK.Typography.bodyEmphasis)
+                        .foregroundStyle(LK.Palette.ink)
+                    Text("Create an account to order from a kitchen. You can start cooking yourself later — that's a separate step, and it's optional.")
+                        .font(LK.Typography.meta)
+                        .foregroundStyle(LK.Palette.inkTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        showingSignUp = true
+                    } label: {
+                        Text("Create an account")
+                            .font(LK.Typography.navBarEmphasis)
+                            .foregroundStyle(LK.Palette.action)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: LK.Metrics.radiusButton, style: .continuous)
+                                    .strokeBorder(LK.Palette.action.opacity(0.35), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                #if DEBUG
+                devHint
+                #endif
+            }
+            .padding(LK.Metrics.screenPadding)
+        }
+        .background(LK.Palette.ground)
+        .sheet(isPresented: $showingSignUp) {
+            SignUpView(session: session)
+        }
+    }
+
+    #if DEBUG
+    /// Debug-only shortcut into the seeded cooks. Never compiled into a release
+    /// build — the credentials are dev seed data.
+    private var devHint: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Dev — seeded cooks")
+            Text("Password for all: litkitchen")
+                .font(LK.Typography.meta)
+                .foregroundStyle(LK.Palette.inkTertiary)
+            FlowLayout(spacing: 7) {
+                ForEach(["yolanda", "marisol", "rosa", "beto", "priya"], id: \.self) { name in
+                    Button("\(name)@seed.test") {
+                        email = "\(name)@seed.test"
+                        password = "litkitchen"
+                    }
+                    .font(LK.Typography.meta)
+                    .foregroundStyle(LK.Palette.inkQuiet)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(LK.Palette.chip, in: Capsule())
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.top, 8)
+    }
+    #endif
+}

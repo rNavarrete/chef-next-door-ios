@@ -1,0 +1,354 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check that would have caught every ordering bug in the first draft of
+  # the schema: apply the migrations, in order, to an empty database.
+  migrations:
+    name: Migrations apply to an empty database
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: litkitchen_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: litkitchen_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Stub the Supabase-managed schema
+        # Migrations reference auth.users and auth.uid(), which Supabase
+        # provides in production. Stub them so the schema can be validated
+        # standalone.
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists auth;
+          create table if not exists auth.users (id uuid primary key);
+          -- 040 gates messaging on this. Supabase's real column is NOT NULL
+          -- DEFAULT false, and the default matters: a stub defaulting to null
+          -- would make `not is_anonymous` null, and every gate test would pass
+          -- for the wrong reason.
+          alter table auth.users
+            add column if not exists is_anonymous boolean not null default false;
+          -- Mirrors Supabase's real definition, including the nullif. An
+          -- anonymous request arrives with the claim set to the empty string,
+          -- not unset, and ''::uuid raises. The naive version passed every test
+          -- that happened to be authenticated and failed only on the anon path.
+          create or replace function auth.uid() returns uuid
+            language sql stable as $$
+              select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+            $$;
+          -- Roles Supabase defines for us.
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated nologin;
+            end if;
+            -- service_role too: a grant is only tested from the role that has
+            -- to use it, and running as the owner bypasses grant checks
+            -- entirely. Omitting this hid a function nobody could execute.
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              create role service_role nologin bypassrls;
+            end if;
+          end $$;
+
+          -- Supabase Storage, stubbed the same way as auth so 024 can create
+          -- its bucket and policies standalone. Only the columns and the one
+          -- helper the migration touches.
+          -- Supabase grants the API roles access to auth.uid(); without it a
+          -- plain (non-SECURITY DEFINER) function that calls it fails with
+          -- "permission denied for schema auth" only under CI, which is a
+          -- difference from production the stub must not invent.
+          grant usage on schema auth to anon, authenticated;
+          grant execute on function auth.uid() to anon, authenticated;
+
+          -- pg_net, stubbed like auth and storage. Only the two objects
+          -- 033's state machine touches. Without this the fetch/apply logic is
+          -- untestable outside Supabase, which is where bugs go to hide.
+          create schema if not exists net;
+          create table if not exists net._http_response (
+            id bigserial primary key,
+            status_code integer,
+            content text,
+            created timestamptz not null default now()
+          );
+          create or replace function net.http_get(url text, timeout_milliseconds integer default 5000)
+            returns bigint language sql as $$
+              select nextval('net._http_response_id_seq')
+            $$;
+          -- The real pg_net signature. The stub previously had only
+          -- http_get, so every push trigger threw "function does not exist",
+          -- was swallowed by its own exception handler, and was never once
+          -- executed by a test — the triggers looked covered because their
+          -- payload builders were.
+          create or replace function net.http_post(
+            url text,
+            body jsonb default '{}'::jsonb,
+            params jsonb default '{}'::jsonb,
+            headers jsonb default '{"Content-Type": "application/json"}'::jsonb,
+            timeout_milliseconds integer default 5000
+          ) returns bigint language sql as $$
+            select nextval('net._http_response_id_seq')
+          $$;
+
+          create schema if not exists storage;
+          create table if not exists storage.buckets (
+            id text primary key,
+            name text not null,
+            public boolean not null default false,
+            file_size_limit bigint,
+            allowed_mime_types text[]
+          );
+          create table if not exists storage.objects (
+            id uuid primary key default gen_random_uuid(),
+            bucket_id text references storage.buckets(id),
+            name text not null,
+            owner uuid,
+            created_at timestamptz not null default now()
+          );
+          alter table storage.objects enable row level security;
+          -- Real implementation drops the filename; for `<uid>/<file>` the
+          -- first element is the same either way, which is all 024 reads.
+          create or replace function storage.foldername(name text)
+            returns text[] language sql immutable as $$
+              select string_to_array(name, '/')
+            $$;
+          SQL
+
+      - name: Apply migrations in order
+        run: |
+          set -euo pipefail
+          for f in supabase/migrations/*.sql; do
+            echo "── $f"
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Seed the geo secret
+        # Deliberately NOT a GUC. A GUC was used originally and `authenticated`
+        # could read it via current_setting() — see SPIKE_LOCATION_PRIVACY.md.
+        # app_secrets is created by migration 004, so this runs after them.
+        run: |
+          psql -v ON_ERROR_STOP=1 -c \
+            "insert into app_secrets (key, value) values ('geo_secret','ci-test-secret');"
+
+      - name: Messaging gate and profile visibility
+        # Runs as the authenticated/anon roles rather than the owner, which is
+        # the only way an assertion of the form "role X cannot do Y" means
+        # anything — see supabase/tests/README.md.
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/messaging_gate.sql
+
+      - name: Assert the location invariants
+        # These are not style checks. A regression here is a physical-safety
+        # incident, so they run on every PR, not just when SQL changes.
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            -- kitchens must never carry an exact point
+            if exists (
+              select 1 from information_schema.columns
+               where table_name = 'kitchens' and column_name = 'exact_point'
+            ) then
+              raise exception 'REGRESSION: kitchens.exact_point exists. Exact coordinates belong in kitchen_locations, which has no client grants.';
+            end if;
+
+            -- kitchen_locations must have no policies (it has no grants)
+            if exists (select 1 from pg_policies where tablename = 'kitchen_locations') then
+              raise exception 'REGRESSION: a policy was added to kitchen_locations. It is protected by an absence of grants, not by RLS.';
+            end if;
+
+            -- no permissive USING(true) read policy on anything holding PII
+            if exists (
+              select 1 from pg_policies
+               where tablename in ('claims','address_disclosures')
+                 and permissive = 'PERMISSIVE'
+                 and qual = 'true'
+            ) then
+              raise exception 'REGRESSION: a USING(true) policy on a PII table. Permissive policies compose with OR and will defeat the gated policy.';
+            end if;
+
+            -- the geo secret must be unreachable by client roles. It lived in
+            -- a GUC once and `authenticated` could read it.
+            if has_table_privilege('authenticated','app_secrets','select')
+               or has_table_privilege('anon','app_secrets','select') then
+              raise exception 'REGRESSION: app_secrets is client-readable.';
+            end if;
+
+            -- and the fuzz function must not be callable by clients, or the
+            -- scheme can be reproduced offline.
+            if has_function_privilege('authenticated','public_point_for(geography,text,double precision)','execute')
+               or has_function_privilege('anon','public_point_for(geography,text,double precision)','execute') then
+              raise exception 'REGRESSION: public_point_for is client-executable.';
+            end if;
+
+            -- Generalised, because the specific checks above only cover the
+            -- functions that existed when they were written. Postgres makes
+            -- every new function EXECUTE-able by PUBLIC by default, so a
+            -- SECURITY DEFINER function that touches kitchen_locations is
+            -- reachable by anon the moment it is created unless someone
+            -- remembers to revoke. This catches the one they forget.
+            if exists (
+              select 1
+                from pg_proc p
+                join pg_namespace n on n.oid = p.pronamespace
+               where n.nspname = 'public'
+                 and p.prosrc ilike '%kitchen_locations%'
+                 and has_function_privilege('anon', p.oid, 'execute')
+            ) then
+              raise exception 'REGRESSION: a function referencing kitchen_locations is executable by anon. New functions are PUBLIC-executable by default — revoke from public, anon explicitly.';
+            end if;
+
+            -- Any SECURITY DEFINER function anon can execute, beyond the three
+            -- the anonymous feed genuinely needs. This is broader than the
+            -- kitchen_locations check above on purpose: `open_kitchen` touched
+            -- no protected table and was still callable by strangers, which let
+            -- anyone advertise a cook's home as open (migration 052).
+            if exists (
+              select 1
+                from pg_proc p
+                join pg_namespace n on n.oid = p.pronamespace
+               where n.nspname = 'public'
+                 and p.prosecdef
+                 and has_function_privilege('anon', p.oid, 'execute')
+                 and p.proname not in ('cook_is_blocked', 'i_am_blocked_by', 'follower_count')
+            ) then
+              raise exception 'REGRESSION: a SECURITY DEFINER function is executable by anon. Postgres grants EXECUTE to PUBLIC by default — revoke from public, anon unless the anonymous feed needs it.';
+            end if;
+
+            -- A cook's phone number is the same class of thing as their home
+            -- address (migration 039's own reasoning), and the whole messaging
+            -- feature exists so a buyer never sees it. A table-wide SELECT
+            -- grant on `cooks` handed it to anyone with the anon key
+            -- (migration 055).
+            if has_column_privilege('anon', 'cooks', 'contact_value', 'select')
+               or has_column_privilege('authenticated', 'cooks', 'contact_value', 'select') then
+              raise exception 'REGRESSION: cooks.contact_value is client-readable. Messaging exists so the number is never disclosed — grant columns, not the table.';
+            end if;
+
+            -- Registration must not be able to mint a trust badge. Discovery
+            -- renders the permit badge on permit_status = 'verified' and
+            -- nothing else, so a self-service path that could write it would
+            -- turn an unverified assertion into a displayed credential.
+            --
+            -- Comments are stripped before matching: prosrc includes them, and
+            -- the function's own comment explains why it must never write
+            -- 'verified' — which would otherwise fail this check on the very
+            -- code that documents it.
+            if exists (
+              select 1 from pg_proc p
+                join pg_namespace n on n.oid = p.pronamespace
+               where n.nspname = 'public' and p.proname = 'register_cook'
+                 and regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%verified%'
+            ) then
+              raise exception 'REGRESSION: register_cook mentions the verified permit status. Self-registration must never set it — see M4.';
+            end if;
+          end $$;
+
+          -- Deterministic: repeated reads must not vary, or they can be
+          -- averaged back to the true point.
+          do $$ begin
+            if public_point_for(ST_MakePoint(-117.89, 34.09)::geography, 's')::text
+             <> public_point_for(ST_MakePoint(-117.89, 34.09)::geography, 's')::text then
+              raise exception 'REGRESSION: fuzzing is not deterministic.';
+            end if;
+
+            -- Lossy: homes must collapse onto shared points. THIS is the
+            -- privacy guarantee, not the secret — see SPIKE_LOCATION_PRIVACY.md.
+            --
+            -- Deliberately statistical, not a two-point comparison. Any two
+            -- adjacent points may straddle a cell boundary depending on the
+            -- secret-derived phase, so a pair test is flaky by construction —
+            -- it failed under one secret and passed under another during the
+            -- spike. The collapse *ratio* is stable under every secret.
+            if (
+              select count(*)::numeric / nullif(count(distinct public_point_for(p,'s')::text),0)
+              from (
+                select ST_MakePoint(-117.8903 + (i%50)*0.00035,
+                                     34.0900 + (i/50)*0.0003)::geography as p
+                from generate_series(0,2499) i
+              ) pts
+            ) < 20 then
+              raise exception 'REGRESSION: homes no longer collapse onto shared points. Expect ~100 homes per published point; a low ratio means the grid is no longer shared and the anonymity set has collapsed.';
+            end if;
+
+            -- Displacement must stay bounded by the cell half-diagonal
+            -- (~283m for a 400m cell) at every latitude. Web Mercator gave
+            -- 414m cells at Covina and 337m in Seattle; UTM does not.
+            if (
+              select max(ST_Distance(p, public_point_for(p,'s')))
+              from (
+                select ST_MakePoint(-117.89 + (i%30)*0.0006,
+                                     34.09 + (i/30)*0.0005)::geography as p
+                from generate_series(0,899) i
+                union all
+                select ST_MakePoint(-122.33 + (i%30)*0.0006,
+                                     47.60 + (i/30)*0.0005)::geography
+                from generate_series(0,899) i
+              ) pts
+            ) > 320 then
+              raise exception 'REGRESSION: a published point moved further than the cell half-diagonal.';
+            end if;
+          end $$;
+          SQL
+
+      - name: Idempotency — re-applying must not corrupt state
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "select count(*) from enforcement_agencies;"
+
+  ios:
+    name: Build and test (iOS)
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app || true
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build and test
+        run: |
+          xcodebuild test \
+            -project LitKitchen.xcodeproj \
+            -scheme LitKitchen \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -resultBundlePath TestResults.xcresult \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: TestResults.xcresult

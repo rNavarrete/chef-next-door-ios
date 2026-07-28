@@ -1,0 +1,33 @@
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+!*.xcodeproj/project.pbxproj
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# XcodeGen generates the project — project.yml is the source of truth
+LitKitchen.xcodeproj/
+
+# Swift
+.build/
+.swiftpm/
+Packages/
+# Vendored SPM checkouts — 86MB of other people's source, restored by resolve.
+.spm/
+
+# Secrets — never commit. See Config/Secrets.example.xcconfig
+Config/Secrets.xcconfig
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Generated deliverables
+lit-kitchen-design-handoff.zip

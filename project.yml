@@ -1,0 +1,153 @@
+name: LitKitchen
+
+options:
+  bundleIdPrefix: com.litkitchen
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+configs:
+  Debug: debug
+  Release: release
+
+# Config/Secrets.xcconfig is gitignored. Copy the .example alongside it before
+# the first build, or SUPABASE_URL resolves empty and the client init traps
+# with a message saying exactly that.
+configFiles:
+  Debug: Config/Secrets.xcconfig
+  Release: Config/Secrets.xcconfig
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.0.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    # Swift 6 strict concurrency from day one — IMPLEMENTATION_PLAN.md §1.
+    # Cheap now, a migration later.
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CODE_SIGN_STYLE: Automatic
+    # Team HCEA5N57HT, from the Apple Development certificate on this machine
+    # (OU=HCEA5N57HT, O=Rolando Navarrete). A paid membership — the profiles
+    # carry a wildcard App ID and year-long expiries, neither of which a free
+    # personal team gets. That is what makes the push entitlement below
+    # possible at all.
+    DEVELOPMENT_TEAM: HCEA5N57HT
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+
+targets:
+  LitKitchen:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/LitKitchen
+      - path: Sources/Shared
+    dependencies:
+      - target: LitKitchenWidgets
+        embed: true
+      - package: Supabase
+        product: Supabase
+    info:
+      path: Sources/LitKitchen/Info.plist
+      properties:
+        CFBundleDisplayName: Lit Kitchen
+        # Injected from Config/Secrets.xcconfig at build time so no key is
+        # ever committed in source.
+        SUPABASE_URL: $(SUPABASE_URL)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
+        # Required for ActivityKit. Without it Live Activities silently fail
+        # to start — no error, no activity.
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        # The Live Activity's buttons have always linked to litkitchen://thread/<id>,
+        # but the scheme was never registered — so iOS had nothing to route the
+        # URL to and simply foregrounded the app on whatever screen it left off.
+        # The card looked like it worked and went nowhere.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.litkitchen.app
+            CFBundleURLSchemes:
+              - litkitchen
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Copy is cook-facing and explains the *why*, not just the ask.
+        NSLocationWhenInUseUsageDescription: >-
+          Lit Kitchen uses your location to show which kitchens near you are
+          cooking right now. Cooks' exact addresses are never shown on the map.
+        NSCameraUsageDescription: >-
+          Take photos of your food for your menu.
+        NSPhotoLibraryUsageDescription: >-
+          Choose photos of your food for your menu.
+        ITSAppUsesNonExemptEncryption: false
+    # XcodeGen GENERATES this file from `properties` — it does not reference a
+    # hand-written one. Declaring only `path` silently rewrites the file as an
+    # empty <dict/> on every `xcodegen generate`, which is a build that
+    # succeeds and produces a binary with no entitlements at all. Keys belong
+    # here, not in the .entitlements file.
+    entitlements:
+      path: Sources/LitKitchen/LitKitchen.entitlements
+      properties:
+        # ActivityKit push. Without it Activity.request(pushType: .token)
+        # fails with SessionCore.PermissionsError Code=3 and no activity
+        # appears — SPIKE_LIVE_ACTIVITY.md Finding 1. `development` is the
+        # APNs sandbox; release builds need `production`.
+        aps-environment: development
+        # Sign in with Apple. "Default" is the plain first-party flow; the
+        # other value is only for apps signing in via a related web domain.
+        com.apple.developer.applesignin:
+          - Default
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.litkitchen.app
+        TARGETED_DEVICE_FAMILY: "1"
+        # Without this the catalog is compiled but nothing points at the icon
+        # set, and the build silently ships a blank icon — which is what was
+        # happening, because there was no catalog at all.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  LitKitchenWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Sources/LitKitchenWidgets
+      - path: Sources/Shared
+    info:
+      path: Sources/LitKitchenWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Lit Kitchen
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.litkitchen.app.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+
+  LitKitchenTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/LitKitchenTests
+    dependencies:
+      - target: LitKitchen
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.litkitchen.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  LitKitchen:
+    build:
+      targets:
+        LitKitchen: all
+    test:
+      targets:
+        - LitKitchenTests
+      gatherCoverageData: true
+    run:
+      config: Debug
