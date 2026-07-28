@@ -5,6 +5,19 @@ to a group. The rest is for you.
 
 ---
 
+## Beta App Description (paste this)
+
+Required before a build can go to external testers. This is the standing
+description of what the app *is* — testers see it in the TestFlight app. The
+"What to Test" section below is different: it is per-build, and it changes.
+
+Chef Next Door shows which home cooks near you are cooking right now, across
+Southern California. Browse what's being made today, see how far away it is, and
+message the cook directly. Nothing is bought or paid for in the app — you
+arrange everything with the cook yourself.
+
+---
+
 ## What to Test (paste this)
 
 Thanks for trying Chef Next Door. It shows which home cooks near you are cooking
