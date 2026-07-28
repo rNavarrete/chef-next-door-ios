@@ -132,7 +132,7 @@ struct PlaceSearchSheet: View {
     /// so a denied prompt gets one factual sentence rather than a banner
     /// pushing the person into Settings.
     private var deniedNote: some View {
-        note("Location is off for Lit Kitchen, so search for a ZIP code or a city instead. You can change that in Settings whenever you like.")
+        note("Location is off for Chef Next Door, so search for a ZIP code or a city instead. You can change that in Settings whenever you like.")
     }
 
     private var resultList: some View {

@@ -15,7 +15,7 @@
 --
 -- ## Deliberately honest about what it is
 --
--- The cook is named "Demo Kitchen (Lit Kitchen)" rather than dressed up as a
+-- The cook is named "Demo Kitchen (Chef Next Door)" rather than dressed up as a
 -- real neighbour. A real buyer who stumbles across it before the first genuine
 -- cook signs up should be able to tell immediately what they are looking at.
 -- Inventing "Maria's Tamales" would populate the feed more convincingly and
@@ -75,7 +75,7 @@ begin
                      json_build_object('sub', v_user::text)::text, true);
 
   select register_cook(
-    p_display_name  => 'Demo Kitchen (Lit Kitchen)',
+    p_display_name  => 'Demo Kitchen (Chef Next Door)',
     p_contact_method=> 'sms',
     p_contact_value => '(626) 555-0142',
     p_street        => '1148 N Puente Ave',

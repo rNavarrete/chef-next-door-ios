@@ -7,7 +7,7 @@ to a group. The rest is for you.
 
 ## What to Test (paste this)
 
-Thanks for trying Lit Kitchen. It shows which home cooks near you are cooking
+Thanks for trying Chef Next Door. It shows which home cooks near you are cooking
 **right now**, and lets you message them. Nothing is paid for in the app —
 you'd arrange everything with the cook directly.
 
@@ -90,5 +90,5 @@ version go out without re-review.
   department, but the MEHKO opt-in flag for those counties is set conservatively
   to "not opted in" pending verification. A cook in Orange County will be warned
   that meals may not be permitted. That warning is deliberate and may be wrong.
-- The demo kitchen ("Demo Kitchen (Lit Kitchen)") is scaffolding for App Review
+- The demo kitchen ("Demo Kitchen (Chef Next Door)") is scaffolding for App Review
   and will look odd beside the others.

@@ -75,7 +75,7 @@ targets:
     info:
       path: Sources/LitKitchen/Info.plist
       properties:
-        CFBundleDisplayName: Lit Kitchen
+        CFBundleDisplayName: Chef Next Door
         # Both read the settings above, so a release is one edit in one place
         # and the extension can never drift out of step with the app.
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -101,7 +101,7 @@ targets:
           - UIInterfaceOrientationPortrait
         # Copy is cook-facing and explains the *why*, not just the ask.
         NSLocationWhenInUseUsageDescription: >-
-          Lit Kitchen uses your location to show which kitchens near you are
+          Chef Next Door uses your location to show which kitchens near you are
           cooking right now. Cooks' exact addresses are never shown on the map.
         NSCameraUsageDescription: >-
           Take photos of your food for your menu.
@@ -161,7 +161,7 @@ targets:
     info:
       path: Sources/LitKitchenWidgets/Info.plist
       properties:
-        CFBundleDisplayName: Lit Kitchen
+        CFBundleDisplayName: Chef Next Door
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

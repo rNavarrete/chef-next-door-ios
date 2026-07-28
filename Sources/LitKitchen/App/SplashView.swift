@@ -39,9 +39,16 @@ struct SplashView: View {
                     .opacity(landed ? 1 : 0)
 
                 VStack(spacing: 7) {
-                    Text("Lit Kitchen")
+                    // Scales rather than wraps. "Lit Kitchen" was eleven
+                    // characters and fit anywhere; "Chef Next Door" is fourteen
+                    // at 38pt heavy, which wraps to "Chef Next / Door" on a
+                    // narrow phone — under a fixed-height burger, so the whole
+                    // composition shifts. One line, shrunk if it has to be.
+                    Text("Chef Next Door")
                         .font(LK.Typography.display(38, weight: .heavy))
                         .foregroundStyle(LK.Palette.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
 
                     Text("Who's cooking right now")
                         .font(LK.Typography.body)
@@ -89,7 +96,7 @@ struct SplashView: View {
         // One element, one label. Without this VoiceOver reads a decorative
         // dumpling, two eyes and a mouth as four separate items.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Lit Kitchen. Who's cooking right now.")
+        .accessibilityLabel("Chef Next Door. Who's cooking right now.")
     }
 
     /// The one line colour. Warm near-black rather than pure black — pure

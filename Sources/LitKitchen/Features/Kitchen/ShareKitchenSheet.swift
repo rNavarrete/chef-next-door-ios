@@ -74,7 +74,7 @@ struct ShareKitchenSheet: View {
                         Label("Works for people who have the app", systemImage: "info.circle")
                             .font(LK.Typography.bodyEmphasis)
                             .foregroundStyle(LK.Palette.ink)
-                        Text("Right now this link opens Lit Kitchen for anyone who already has it installed. It's best face to face — show the code at a pickup, or put it in the bag. A version that works for everyone is coming.")
+                        Text("Right now this link opens Chef Next Door for anyone who already has it installed. It's best face to face — show the code at a pickup, or put it in the bag. A version that works for everyone is coming.")
                             .font(LK.Typography.meta)
                             .foregroundStyle(LK.Palette.inkTertiary)
                             .fixedSize(horizontal: false, vertical: true)

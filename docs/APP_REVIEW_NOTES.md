@@ -7,7 +7,7 @@ rest of this file is for you, not for Apple.
 
 ## Review Notes (paste this)
 
-Lit Kitchen shows which home cooks near you are cooking right now, across
+Chef Next Door shows which home cooks near you are cooking right now, across
 Southern California. No payments are taken in the app — buyers
 and cooks arrange everything by message and pay each other directly.
 
@@ -89,7 +89,7 @@ delete from auth.users where email = 'demo@litkitchen.app';
 
 ## Why the demo kitchen is named what it is
 
-"Demo Kitchen (Lit Kitchen)", not "Maria's Tamales". A real buyer who finds it
+"Demo Kitchen (Chef Next Door)", not "Maria's Tamales". A real buyer who finds it
 before the first genuine cook signs up should be able to tell instantly what
 they are looking at. It also claims no permit, because a fake permit badge is
 the one thing in this app that must never be faked — the badge is the whole

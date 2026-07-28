@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Lit Kitchen</string>
+	<string>Chef Next Door</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -36,7 +36,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Take photos of your food for your menu.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lit Kitchen uses your location to show which kitchens near you are cooking right now. Cooks' exact addresses are never shown on the map.</string>
+	<string>Chef Next Door uses your location to show which kitchens near you are cooking right now. Cooks' exact addresses are never shown on the map.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose photos of your food for your menu.</string>
 	<key>NSSupportsLiveActivities</key>
