@@ -59,6 +59,7 @@ final class KitchenViewModel {
             story = profile?.bio ?? ""
             servingNote = profile?.servingNote
             coverURL = profile?.coverURL
+            if let name = profile?.displayName, !name.isEmpty { shareName = name }
         } catch {
             errorMessage = UserFacingError.message(for: error, fallback: "Couldn't reach your kitchen. Try again in a moment.")
         }
@@ -104,6 +105,11 @@ final class KitchenViewModel {
         }
     }
 
+    /// What to print under the QR code — the cook's own name, from the same
+    /// profile fetch as the story. Falls back to something that still reads as
+    /// a kitchen rather than leaving the card blank.
+    var shareName: String = "Your kitchen"
+
     func add(_ item: MenuItem) async {
         do {
             try await repository.save(item)
@@ -137,6 +143,7 @@ struct KitchenView: View {
     @State private var showingStory = false
     /// Non-nil while confirming a deletion.
     @State private var deletingItem: MenuItem?
+    @State private var showingShare = false
 
     var body: some View {
         ScrollView {
@@ -146,6 +153,7 @@ struct KitchenView: View {
                 menuBlock
                 coverBlock
                 storyBlock
+                shareBlock
                 footer
             }
             .padding(LK.Metrics.screenPadding)
@@ -190,6 +198,10 @@ struct KitchenView: View {
             Button("Keep it", role: .cancel) { deletingItem = nil }
         } message: { _ in
             Text("This takes it off your menu for good. If you're just out today, mark it sold out instead.")
+        }
+        .sheet(isPresented: $showingShare) {
+            ShareKitchenSheet(cookID: model.cookID, displayName: model.shareName)
+                .presentationDetents([.large])
         }
         .sheet(isPresented: $showingStory) {
             CookStorySheet(cookID: model.cookID, story: model.story) { saved in
@@ -435,6 +447,37 @@ struct KitchenView: View {
                 }
             }
         }
+    }
+
+    /// Where a cook gets something to paste where their buyers already are.
+    /// Placed with the menu rather than buried in settings: it is a growth
+    /// action, and it belongs next to the thing being shared.
+    private var shareBlock: some View {
+        Button {
+            showingShare = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "qrcode")
+                    .font(LK.Typography.bodyEmphasis)
+                    .foregroundStyle(LK.Palette.action)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Share your kitchen")
+                        .font(LK.Typography.navBar)
+                        .foregroundStyle(LK.Palette.ink)
+                    Text("A link and a QR code for your buyers")
+                        .font(LK.Typography.meta)
+                        .foregroundStyle(LK.Palette.inkTertiary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(LK.Typography.meta)
+                    .foregroundStyle(LK.Palette.inkTertiary)
+            }
+            .padding(14)
+            .background(LK.Palette.surface, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var footer: some View {

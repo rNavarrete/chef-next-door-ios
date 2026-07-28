@@ -24,6 +24,10 @@ public protocol DiscoveryRepository: AnyObject, Sendable {
     /// without — which is why its "What they said" was a hardcoded sentence
     /// and `cooks.bio` had no way to reach a screen.
     func cook(_ cookID: UUID) async throws -> Cook?
+    /// Discovery rows for specific cooks, used when arriving by shared link
+    /// with nothing but an id. Returns the same shape the feed builds, so a
+    /// kitchen reached from a QR code renders identically to one scrolled to.
+    func rows(forCookIDs ids: [UUID], near: Coordinate) async throws -> [DiscoveryResult]
 }
 
 public final class SupabaseDiscoveryRepository: DiscoveryRepository {
@@ -74,6 +78,17 @@ public final class SupabaseDiscoveryRepository: DiscoveryRepository {
             .select()
             .eq("cook_id", value: cookID)
             .order("sort_order")
+            .execute()
+            .value
+    }
+
+
+    public func rows(forCookIDs ids: [UUID], near coordinate: Coordinate) async throws -> [DiscoveryResult] {
+        guard !ids.isEmpty else { return [] }
+        struct Params: Encodable { let ids: [UUID]; let lat: Double; let lon: Double }
+        return try await client
+            .rpc("cooks_by_ids", params: Params(
+                ids: ids, lat: coordinate.latitude, lon: coordinate.longitude))
             .execute()
             .value
     }
@@ -137,4 +152,8 @@ public final class InMemoryDiscoveryRepository: DiscoveryRepository {
 
     public func expansion(for query: String) async throws -> [String] { [] }
     public func menu(for cookID: UUID) async throws -> [MenuItem] { MenuItem.samples }
+
+    public func rows(forCookIDs ids: [UUID], near: Coordinate) async throws -> [DiscoveryResult] {
+        rows.filter { ids.contains($0.cookID) }
+    }
 }

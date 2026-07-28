@@ -45,6 +45,8 @@ struct RootView: View {
     @State private var selection: RootTab = .cooking
     /// A thread arrived at from outside the app — today, the Live Activity.
     @State private var deepLink: ThreadLink?
+    /// A cook's shared link, arriving from outside the app.
+    @State private var kitchenLink: KitchenLink?
     // Reads live from the Supabase RPCs. Falls back to the in-memory double
     // when credentials are absent, so a fresh clone still runs.
     /// Where the app is looking — see `BrowsingOrigin`.
@@ -112,10 +114,19 @@ struct RootView: View {
         .onOpenURL { url in
             if let id = DeepLink.threadID(from: url) {
                 deepLink = ThreadLink(id: id)
+            } else if let id = DeepLink.cookID(from: url) {
+                // A cook shared their kitchen. Opens as a sheet rather than
+                // switching tabs, so somebody arriving from a Facebook post
+                // lands on the kitchen they were promised and can dismiss back
+                // to wherever they were.
+                kitchenLink = KitchenLink(id: id)
             }
         }
         .sheet(item: $deepLink) { link in
             ThreadDeepLinkView(threadID: link.id)
+        }
+        .sheet(item: $kitchenLink) { link in
+            KitchenDeepLinkView(cookID: link.id)
         }
         .task {
             await Self.session?.restore()

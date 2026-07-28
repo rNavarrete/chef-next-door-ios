@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// `litkitchen://` URLs, which today means exactly one thing: open a thread.
+/// `litkitchen://` URLs. Two shapes: a thread, and a cook's kitchen.
 ///
 /// The Live Activity has emitted `litkitchen://thread/<uuid>` from four places
 /// since it was written, and nothing in the app ever parsed it. Worse, the
@@ -21,6 +21,37 @@ enum DeepLink {
             .last { $0 != "/" }
             .flatMap(UUID.init(uuidString:))
     }
+
+    /// The cook id in `litkitchen://cook/<uuid>`, or nil.
+    ///
+    /// What a cook's shareable link points at. They paste it into the Facebook
+    /// post or Messenger thread where their buyers already are, and it opens
+    /// their kitchen here.
+    static func cookID(from url: URL) -> UUID? {
+        guard url.scheme == "litkitchen", url.host == "cook" else { return nil }
+        return url.pathComponents
+            .last { $0 != "/" }
+            .flatMap(UUID.init(uuidString:))
+    }
+
+    /// The link a cook shares.
+    ///
+    /// A custom scheme, which means it only opens for somebody who already has
+    /// the app — tapping it without the app installed does nothing visible.
+    /// That is a real limit and the reason this is one function: when a domain
+    /// exists, this becomes an https:// Universal Link and every share already
+    /// in the wild keeps working, because they all came from here.
+    ///
+    /// Universal Links additionally need an apple-app-site-association file
+    /// served from that domain, and the associated-domains entitlement.
+    static func kitchenURL(cookID: UUID) -> URL {
+        URL(string: "litkitchen://cook/\(cookID.uuidString.lowercased())")!
+    }
+}
+
+/// Wraps a cook id so it can drive `.sheet(item:)`.
+struct KitchenLink: Identifiable {
+    let id: UUID
 }
 
 /// Wraps a thread id so it can drive `.sheet(item:)`.
