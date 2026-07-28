@@ -57,7 +57,11 @@ settings:
     #
     # MARKETING_VERSION is what testers see. CURRENT_PROJECT_VERSION is the
     # build counter: bump it for every upload, reset it never.
-    MARKETING_VERSION: "0.1"
+    # 1.0 to match the version record created in App Store Connect. A build
+    # whose CFBundleShortVersionString differs from the App Store version is
+    # accepted by TestFlight but rejected at App Store submission, so the two
+    # are kept equal rather than reconciled later under time pressure.
+    MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
