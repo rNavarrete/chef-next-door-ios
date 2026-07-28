@@ -19,6 +19,8 @@ Packages/
 
 # Secrets — never commit. See Config/Secrets.example.xcconfig
 Config/Secrets.xcconfig
+Config/Secrets.Debug.xcconfig
+Config/Secrets.Release.xcconfig
 .env
 .env.*
 

@@ -11,12 +11,18 @@ configs:
   Debug: debug
   Release: release
 
-# Config/Secrets.xcconfig is gitignored. Copy the .example alongside it before
-# the first build, or SUPABASE_URL resolves empty and the client init traps
-# with a message saying exactly that.
+# Both are gitignored. Copy the .example files alongside them before the first
+# build, or SUPABASE_URL resolves empty and the app quietly falls back to its
+# in-memory doubles — a convincing demo that talks to nothing.
+#
+# Split per configuration so the two environments cannot be confused. Debug —
+# anything installed from Xcode — points at staging. Release, which is what an
+# archive and therefore TestFlight carries, points at production. They were one
+# file until testers were on the horizon, which meant there was no way to ship a
+# build that did not read and write the same database QA had been churning.
 configFiles:
-  Debug: Config/Secrets.xcconfig
-  Release: Config/Secrets.xcconfig
+  Debug: Config/Secrets.Debug.xcconfig
+  Release: Config/Secrets.Release.xcconfig
 
 packages:
   Supabase:
