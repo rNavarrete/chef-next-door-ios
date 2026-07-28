@@ -48,9 +48,10 @@ Screenshots help more than descriptions.
 
 - [ ] Confirm the build number is unique. `CURRENT_PROJECT_VERSION` lives in
       `project.yml`; App Store Connect rejects a repeat.
-- [ ] Confirm the seeded kitchens are still lit. Their sessions are real, and
-      `close_quiet_kitchens()` closes anything untouched for ten hours. If the
-      feed is empty, re-run `supabase/seed_test_kitchens.sql`.
+- [x] Seeded kitchens stay lit on their own now. `close_quiet_kitchens()` was
+      shutting 86 of 90 overnight; migration 066 re-confirms the fictional ones
+      every four hours. Scoped to seed accounts — verified it modifies zero real
+      cook sessions. Remove it before launch, along with the seed itself.
 - [ ] Decide internal vs external. Internal is instant but the tester becomes a
       User on your App Store Connect account. External needs one Beta App
       Review pass but hands over nothing except the app.
