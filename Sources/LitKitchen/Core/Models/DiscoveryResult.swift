@@ -130,7 +130,29 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
     }
 
     public var distanceLabel: String {
-        let miles = distanceM / 1609.34
+        Self.label(forMetres: distanceM)
+    }
+
+    /// Distance from a point other than the one the server measured from.
+    ///
+    /// The map re-queries around wherever it has been dragged, so `distanceM`
+    /// arrives measured from the *map's* centre. Rendering that unchanged makes
+    /// "0.8 mi" mean "from the middle of your screen", which is a quiet lie the
+    /// moment somebody pans to another city — every pin in San Diego would read
+    /// as walking distance. Measured from the browsing origin instead, so the
+    /// number always answers "how far is this from me".
+    public func distanceLabel(from origin: Coordinate) -> String {
+        let earthRadius = 6_371_000.0
+        let dLat = (publicLat - origin.latitude) * .pi / 180
+        let dLon = (publicLon - origin.longitude) * .pi / 180
+        let a = sin(dLat / 2) * sin(dLat / 2)
+            + cos(origin.latitude * .pi / 180) * cos(publicLat * .pi / 180)
+            * sin(dLon / 2) * sin(dLon / 2)
+        return Self.label(forMetres: earthRadius * 2 * atan2(sqrt(a), sqrt(1 - a)))
+    }
+
+    private static func label(forMetres metres: Double) -> String {
+        let miles = metres / 1609.34
         return miles < 0.1 ? "nearby" : String(format: "%.1f mi", miles)
     }
 }

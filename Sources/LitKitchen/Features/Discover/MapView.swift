@@ -53,9 +53,21 @@ final class MapViewModel {
     }
 
     func load() async {
+        await load(near: origin, radiusM: 12000)
+    }
+
+    /// Loads whatever is inside a given circle.
+    ///
+    /// The map calls this with wherever it has been dragged to, rather than the
+    /// browsing origin, because a map that only ever shows one fixed circle is
+    /// not a map — you pan, nothing arrives, and it looks like there is nobody
+    /// out there. `radiusM` comes from the visible span, so zooming out asks
+    /// for more.
+    func load(near centre: Coordinate, radiusM: Int) async {
         isLoading = true
         defer { isLoading = false }
-        results = (try? await repository.cookingNow(near: origin, radiusM: 12000, includeClosed: true)) ?? []
+        results = (try? await repository.cookingNow(
+            near: centre, radiusM: radiusM, includeClosed: true)) ?? []
     }
 }
 
@@ -71,6 +83,12 @@ struct MapKitchenView: View {
     /// it can be changed.
     var browsing: BrowsingOrigin
     @State private var showingPlaceSearch = false
+    /// Debounces the reload while a drag is still settling.
+    @State private var panTask: Task<Void, Never>?
+    /// The circle the currently-loaded results were fetched for, so a small
+    /// nudge does not re-query.
+    @State private var loadedCentre: CLLocationCoordinate2D?
+    @State private var loadedRadius: Double = 0
     /// Seeded from the launch cluster and replaced on first load, either by the
     /// bounding region of what's actually lit or by wherever `browsing` lands.
     @State private var camera: MapCameraPosition = .region(
@@ -149,11 +167,33 @@ struct MapKitchenView: View {
                 ))
             }
         }
+        // Load what is under the map, not just what was near the origin at
+        // launch. `.onEnd` rather than `.continuous`: the query only matters
+        // once the drag has settled, and firing mid-gesture just burns requests
+        // that are stale before they return.
+        .onMapCameraChange(frequency: .onEnd) { context in
+            let region = context.region
+            guard needsReload(region) else { return }
+            panTask?.cancel()
+            panTask = Task {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+                let r = radius(for: region)
+                await model.load(
+                    near: Coordinate(latitude: region.center.latitude,
+                                     longitude: region.center.longitude),
+                    radiusM: Int(r)
+                )
+                guard !Task.isCancelled else { return }
+                loadedCentre = region.center
+                loadedRadius = r
+            }
+        }
         .sheet(isPresented: $showingPlaceSearch) {
             PlaceSearchSheet(browsing: browsing)
         }
         .sheet(item: Bindable(model).selected) { result in
-            MapDetailSheet(result: result)
+            MapDetailSheet(result: result, origin: browsing.coordinate)
                 .presentationDetents([.height(280)])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(LK.Palette.ground)
@@ -161,7 +201,7 @@ struct MapKitchenView: View {
         // Kitchens sharing one fuzz cell publish identical points, so zooming
         // can never separate them. They get a list instead.
         .sheet(item: $stackedCluster) { cluster in
-            ClusterListSheet(cluster: cluster) { result in
+            ClusterListSheet(cluster: cluster, origin: browsing.coordinate) { result in
                 stackedCluster = nil
                 model.selected = result
             }
@@ -169,6 +209,33 @@ struct MapKitchenView: View {
             .presentationDragIndicator(.visible)
             .presentationBackground(LK.Palette.ground)
         }
+    }
+
+    /// Metres from the map's centre to the edge of what is on screen, padded so
+    /// pins just outside the corners still arrive. Clamped at both ends: below
+    /// a kilometre the query returns a street, and above 80km it starts pulling
+    /// the whole state back on every pinch.
+    private func radius(for region: MKCoordinateRegion) -> Double {
+        let lat = region.span.latitudeDelta * 111_000
+        let lon = region.span.longitudeDelta * 111_000
+            * cos(region.center.latitude * .pi / 180)
+        return min(max(max(lat, lon) / 2 * 1.15, 1_000), 80_000)
+    }
+
+    /// Whether the map has moved far enough to be worth another round trip.
+    ///
+    /// Without this, every frame of a drag queues a query and the map spends
+    /// its time cancelling itself. A fifth of the current radius is roughly
+    /// "you have panned a screen's worth".
+    private func needsReload(_ region: MKCoordinateRegion) -> Bool {
+        guard let loadedCentre else { return true }
+        let r = radius(for: region)
+        if abs(r - loadedRadius) / max(loadedRadius, 1) > 0.35 { return true }
+        let moved = CLLocation(latitude: region.center.latitude,
+                               longitude: region.center.longitude)
+            .distance(from: CLLocation(latitude: loadedCentre.latitude,
+                                       longitude: loadedCentre.longitude))
+        return moved > loadedRadius * 0.2
     }
 
     private var map: some View {
@@ -285,7 +352,12 @@ struct MapKitchenView: View {
                             .font(LK.Typography.bodyEmphasis)
                             .lineLimit(1)
                         Spacer()
-                        Text("\(model.litCount) lit")
+                        // "in view", not "lit". The count follows the map now
+                        // that panning re-queries, so beside a place name it
+                        // used to read as "31 lit near Covina" while the map
+                        // was over Santa Monica. The place name is the search
+                        // control; the count describes what is on screen.
+                        Text("\(model.litCount) in view")
                             .font(LK.Typography.ui(13.5, weight: .heavy))
                             .foregroundStyle(LK.Palette.heatInk)
                     }
@@ -465,6 +537,9 @@ private struct MapPin: View {
 /// Raised in place on pin tap. Light against the dark map, per the design.
 private struct MapDetailSheet: View {
     let result: DiscoveryResult
+    /// Where the person is, not where the map is. See
+    /// `DiscoveryResult.distanceLabel(from:)`.
+    let origin: Coordinate
     private var tier: FreshnessTier { result.freshness ?? .out }
 
     @State private var bob: CGFloat = 0
@@ -521,7 +596,7 @@ private struct MapDetailSheet: View {
 
             // Deliberately vague: the exact address is not ours to show until
             // the cook confirms a claim.
-            Text("Somewhere in \(result.neighborhood) · \(result.distanceLabel)")
+            Text("Somewhere in \(result.neighborhood) · \(result.distanceLabel(from: origin))")
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkTertiary)
 
@@ -611,6 +686,7 @@ private struct ClusterPin: View {
 /// design, so a list is the only way to reach the one underneath.
 private struct ClusterListSheet: View {
     let cluster: MapCluster
+    let origin: Coordinate
     let onSelect: (DiscoveryResult) -> Void
 
     var body: some View {
@@ -653,7 +729,7 @@ private struct ClusterListSheet: View {
                                     .font(LK.Typography.dishNameRow)
                                     .foregroundStyle(LK.Palette.ink)
                                     .lineLimit(1)
-                                Text("\(result.displayName) · \(result.distanceLabel)")
+                                Text("\(result.displayName) · \(result.distanceLabel(from: origin))")
                                     .font(LK.Typography.meta)
                                     .foregroundStyle(LK.Palette.inkTertiary)
                                 if let price = result.startingPrice {
