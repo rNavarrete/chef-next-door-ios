@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The widget extension needs its own manifest, not a copy of the app's.
+  Manifests are per-bundle, and an extension that touches a required-reason API
+  without declaring it is the same upload warning as an app that does.
+
+  BurnerControl reads and writes the burner state through a shared App Group
+  suite (UserDefaults(suiteName:)), which is the required-reason API here.
+  Reason CA92.1 — the value is written and read only by this app and its
+  extension, never sent anywhere.
+
+  The extension collects nothing itself. It renders state the app already
+  holds, so NSPrivacyCollectedDataTypes is deliberately empty rather than a
+  duplicate of the app's list: declaring collection here would overstate what
+  this bundle does.
+-->
+<plist version="1.0">
+<dict>
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>CA92.1</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>

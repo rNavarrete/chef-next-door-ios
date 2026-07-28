@@ -143,6 +143,70 @@ public final class SessionController {
         isAnonymous = true
     }
 
+    /// Deletes the account and everything belonging to it, for good.
+    ///
+    /// Required by App Store guideline 5.1.1(v): an app that lets you make an
+    /// account has to let you unmake it from inside the app.
+    ///
+    /// Photos go first, and from here rather than from the server, because SQL
+    /// cannot touch them — Supabase refuses direct deletion from storage tables
+    /// and points at the Storage API. Two policies let a user remove their own
+    /// files, so this runs with the caller's own JWT while it still has one.
+    /// Deleting the account first would strand the bytes with no session left
+    /// that is allowed to reach them.
+    ///
+    /// A failure to clear storage is deliberately not fatal. The account still
+    /// goes; what is left behind is orphaned bytes that nothing references,
+    /// which is a tidiness problem rather than a privacy one. Refusing to
+    /// delete the account because a photo would not delete gets the balance
+    /// exactly backwards.
+    public func deleteAccount() async throws {
+        guard let userID else { throw AccountDeletionError.notSignedIn }
+
+        await removeOwnPhotos(userID: userID)
+        await PushRegistrar.shared.forgetToken()
+
+        do {
+            try await client.rpc("delete_my_account").execute()
+        } catch {
+            throw AccountDeletionError.failed
+        }
+
+        // The session's user no longer exists, so signOut() is local cleanup.
+        try? await client.auth.signOut()
+        self.userID = nil
+        cookID = nil
+        email = nil
+        isAnonymous = true
+    }
+
+    /// Best-effort removal of the caller's own uploads.
+    ///
+    /// Paths mirror `PhotoUploader`: `<uid>/<kind>/<uuid>.jpg` under
+    /// `kitchen-photos`, and `<uid>/avatar.jpg` under `avatars`. Lowercased,
+    /// because the storage policy compares the first path segment against the
+    /// uid as *text* and Swift uppercases UUIDs.
+    private func removeOwnPhotos(userID: UUID) async {
+        let prefix = userID.uuidString.lowercased()
+        for bucket in ["kitchen-photos", "avatars"] {
+            let store = client.storage.from(bucket)
+            // list() is scoped to the caller's own folder, so this cannot
+            // enumerate — much less delete — anybody else's uploads.
+            guard let entries = try? await store.list(path: prefix) else { continue }
+            let paths = entries.map { "\(prefix)/\($0.name)" }
+            // Dish photos sit one level deeper than avatars.
+            var all = paths
+            for entry in entries {
+                let sub = "\(prefix)/\(entry.name)"
+                if let nested = try? await store.list(path: sub) {
+                    all.append(contentsOf: nested.map { "\(sub)/\($0.name)" })
+                }
+            }
+            guard !all.isEmpty else { continue }
+            _ = try? await store.remove(paths: all)
+        }
+    }
+
     /// A user is a cook if they own a `cooks` row. RLS lets anyone read cooks,
     /// so this is a plain lookup rather than a privileged call.
     private func refreshCookStatus() async {
@@ -355,6 +419,25 @@ public final class SessionController {
         case notImplemented
         public var description: String {
             "Sign in with Apple upgrade is not wired yet — it needs a signing team."
+        }
+    }
+}
+
+/// Why an account deletion could not go through.
+///
+/// Deliberately few cases: the person has asked to be gone, and a screen full
+/// of diagnostics at that moment is the wrong response. Either it happened or
+/// it did not and they can try again.
+public enum AccountDeletionError: LocalizedError {
+    case notSignedIn
+    case failed
+
+    public var errorDescription: String? {
+        switch self {
+        case .notSignedIn:
+            "You're not signed in."
+        case .failed:
+            "We couldn't delete your account just now. Try again in a moment — nothing has been removed."
         }
     }
 }

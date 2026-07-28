@@ -65,10 +65,14 @@ struct AccountHomeView: View {
                 }
                 .padding(.top, 4)
 
-                Button("Sign out") { Task { await session.signOut() } }
-                    .font(LK.Typography.body)
-                    .foregroundStyle(LK.Palette.inkTertiary)
-                    .padding(.top, 8)
+                VStack(alignment: .leading, spacing: 18) {
+                    Button("Sign out") { Task { await session.signOut() } }
+                        .font(LK.Typography.body)
+                        .foregroundStyle(LK.Palette.inkTertiary)
+
+                    DeleteAccountButton(session: session)
+                }
+                .padding(.top, 8)
             }
             .padding(LK.Metrics.screenPadding)
         }
