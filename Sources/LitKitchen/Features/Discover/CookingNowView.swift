@@ -79,6 +79,8 @@ struct CookingNowView: View {
     /// Read-only here; the map owns changing it.
     var browsing: BrowsingOrigin
     @FocusState private var searchFocused: Bool
+    /// Narrows what is shown, never what is fetched.
+    @State private var filters: Set<FeedFilter> = []
 
     private var hasQuery: Bool {
         !searchModel.query.trimmingCharacters(in: .whitespaces).isEmpty
@@ -88,6 +90,12 @@ struct CookingNowView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchField
+                if !hasQuery, !model.lit.isEmpty {
+                    FeedFilterBar(active: $filters) { filter in
+                        model.lit.filter(filter.accepts).count
+                    }
+                    .padding(.bottom, 10)
+                }
                 if hasQuery, !searchModel.expansion.isEmpty { expansionRow }
                 if hasQuery { searchResults } else { feed }
             }
@@ -201,15 +209,41 @@ struct CookingNowView: View {
         .contentMargins(.bottom, 28, for: .scrollContent)
     }
 
+    /// Filtered the feed to nothing. Deliberately distinct from "nobody is
+    /// cooking": one is a fact about the neighbourhood, the other is a
+    /// consequence of a tap, and the way out of the second is one more tap.
+    private var filteredEmptyState: some View {
+        VStack(spacing: 8) {
+            Text("Nothing matches those filters")
+                .font(LK.Typography.bodyEmphasis)
+                .foregroundStyle(LK.Palette.ink)
+            Text("\(model.lit.count) kitchen\(model.lit.count == 1 ? " is" : "s are") cooking nearby.")
+                .font(LK.Typography.meta)
+                .foregroundStyle(LK.Palette.inkTertiary)
+            Button("Clear filters") { filters.removeAll() }
+                .font(LK.Typography.navBarEmphasis)
+                .foregroundStyle(LK.Palette.action)
+                .padding(.top, 2)
+                .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+    }
+
     private var feed: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 header
-                ForEach(model.lit) { result in
+                ForEach(filters.apply(to: model.lit)) { result in
                     NavigationLink(value: result) {
                         LitKitchenCard(result: result)
                     }
                     .buttonStyle(.plain)
+                }
+                // Filtered everything away: distinct from having no
+                // kitchens at all, and the way out is a tap.
+                if !model.lit.isEmpty, filters.apply(to: model.lit).isEmpty {
+                    filteredEmptyState
                 }
                 if model.lit.isEmpty && !model.isLoading {
                     emptyState
@@ -220,7 +254,7 @@ struct CookingNowView: View {
                 // kitchen correctly — desaturated photo, no lamp glow — so this
                 // needs no separate card, the same way search reuses it.
                 if model.showingClosed {
-                    ForEach(model.dark) { result in
+                    ForEach(filters.apply(to: model.dark)) { result in
                         NavigationLink(value: result) {
                             LitKitchenCard(result: result)
                         }
