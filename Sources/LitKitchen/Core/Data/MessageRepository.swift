@@ -37,6 +37,56 @@ public struct Conversation: Codable, Sendable, Identifiable, Hashable {
         case iAmTheCook = "i_am_the_cook"
     }
 
+    /// Declaring `init(from:)` suppresses the synthesised memberwise one, which
+    /// the in-memory double builds threads with. Same pairing as `Message`.
+    public init(
+        id: UUID, cookID: UUID, buyerID: UUID, otherName: String,
+        otherAvatar: String?, lastBody: String?, lastKind: MessageKind?,
+        lastPayload: OrderPayload?, lastAt: Date, unread: Int, iAmTheCook: Bool
+    ) {
+        self.id = id
+        self.cookID = cookID
+        self.buyerID = buyerID
+        self.otherName = otherName
+        self.otherAvatar = otherAvatar
+        self.lastBody = lastBody
+        self.lastKind = lastKind
+        self.lastPayload = lastPayload
+        self.lastAt = lastAt
+        self.unread = unread
+        self.iAmTheCook = iAmTheCook
+    }
+
+    /// Written out rather than synthesised for one reason: `lastPayload`.
+    ///
+    /// `last_payload` is whatever the newest message carries, and not every
+    /// message carries an order. A pickup writes `{"by": "buyer"}`, which is
+    /// not an `OrderPayload` — and the synthesised decoder threw on it, which
+    /// fails the *whole array*, not the one row. So a buyer confirming a pickup
+    /// broke every conversation they had: "Couldn't load your messages", on an
+    /// inbox that was completely intact server-side.
+    ///
+    /// `Message` has done the right thing here all along — same `try?`, same
+    /// reason, four lines away. This type inherited a synthesised decoder and
+    /// nobody noticed the difference, because it only shows up once a thread
+    /// reaches a state no test had reached.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        cookID = try c.decode(UUID.self, forKey: .cookID)
+        buyerID = try c.decode(UUID.self, forKey: .buyerID)
+        otherName = try c.decode(String.self, forKey: .otherName)
+        otherAvatar = try c.decodeIfPresent(String.self, forKey: .otherAvatar)
+        lastBody = try c.decodeIfPresent(String.self, forKey: .lastBody)
+        lastKind = try? c.decodeIfPresent(MessageKind.self, forKey: .lastKind)
+        // The line this exists for. A non-order payload becomes nil instead of
+        // taking the inbox down with it.
+        lastPayload = try? c.decodeIfPresent(OrderPayload.self, forKey: .lastPayload)
+        lastAt = try c.decode(Date.self, forKey: .lastAt)
+        unread = try c.decode(Int.self, forKey: .unread)
+        iAmTheCook = try c.decode(Bool.self, forKey: .iAmTheCook)
+    }
+
     /// The one-line preview. Rebuilt from the payload for orders so the inbox
     /// agrees with the card; `lastBody` is a server-side string and cannot be
     /// per-reader.
