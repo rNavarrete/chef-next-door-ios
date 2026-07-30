@@ -121,6 +121,7 @@ struct ConversationsView: View {
     var session: SessionController?
 
     @State private var showingGate = false
+    @Environment(\.scenePhase) private var scenePhase
 
     /// No account, or an anonymous one. Both mean there is nothing to show and
     /// nothing wrong — messaging requires a permanent account (`migrations/040`).
@@ -170,6 +171,24 @@ struct ConversationsView: View {
             }
         }
         .onDisappear { model.stopListening() }
+        // The inbox has the same hole the thread did: `onAppear` does not fire
+        // on foreground, so an app resumed on this screen showed the list as it
+        // was before it was suspended. Worse here than in a thread, because the
+        // inbox is where someone looks to find out whether anything happened —
+        // an unread badge on the app icon over a list with no new row.
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                guard !needsAccount else { return }
+                model.stopListening()
+                Task { await model.load() }
+                model.startListening()
+            case .background:
+                model.stopListening()
+            default:
+                break
+            }
+        }
         .refreshable { await model.load() }
     }
 

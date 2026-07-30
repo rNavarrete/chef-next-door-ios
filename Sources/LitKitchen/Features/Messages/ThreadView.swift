@@ -337,6 +337,7 @@ struct ThreadView: View {
     @State private var showingOrder = false
     @State private var showingReview = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         VStack(spacing: 0) {
@@ -412,6 +413,30 @@ struct ThreadView: View {
             await model.loadMenuIfNeeded(discovery: RootView.discoveryRepository)
         }
         .onDisappear { model.stopListening() }
+        // Backgrounding does not fire `onDisappear`, and foregrounding does not
+        // fire `task`. So a thread left open while the app was suspended came
+        // back holding whatever it had before: iOS had killed the websocket,
+        // Postgres Changes only replays from the moment of *subscribe*, and
+        // nothing asked the server what had been missed. The push arrived, the
+        // person tapped it, and the message the notification was about was not
+        // on screen — reported from a real device.
+        //
+        // `stopListening()` before reloading is the part that matters. The
+        // stream ends when the socket dies, which leaves `liveTask` non-nil but
+        // finished, and `startListening()` is guarded on `liveTask == nil` — so
+        // reloading alone would reconnect nothing and the thread would stay
+        // dead for the rest of the session.
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                model.stopListening()
+                Task { await model.load() }   // load() starts the listener again
+            case .background:
+                model.stopListening()
+            default:
+                break
+            }
+        }
         .onChange(of: model.gate) { _, gate in
             showingGate = gate != nil
         }
