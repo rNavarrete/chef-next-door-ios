@@ -31,7 +31,7 @@ final class CookingNowViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            let all = try await repository.cookingNow(near: origin, radiusM: 12000, includeClosed: true)
+            let all = try await repository.cookingNow(near: origin, radiusM: DiscoveryRadius.defaultM, includeClosed: true)
             lit = all.filter(\.isCooking)
             dark = all.filter { !$0.isCooking }
             errorMessage = nil
@@ -202,7 +202,7 @@ struct CookingNowView: View {
                     // — it reads as "this dish does not exist here" when it
                     // actually means "not inside a radius we never named", and
                     // the buyer has no way to tell those apart or to react.
-                    Text("Nothing matching that within \(SearchViewModel.radiusMiles) miles.")
+                    Text("Nothing matching that within \(DiscoveryRadius.defaultMiles) miles.")
                         .font(LK.Typography.body)
                         .foregroundStyle(LK.Palette.inkQuiet)
                         .multilineTextAlignment(.center)
