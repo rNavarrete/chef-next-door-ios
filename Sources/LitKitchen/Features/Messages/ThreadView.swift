@@ -78,6 +78,12 @@ final class ThreadViewModel {
         do {
             messages = try await repository.messages(in: threadID)
             try await repository.markRead(threadID)
+            // Straight after `markRead`, because a thread opened from a
+            // notification is the one path that never touches the inbox — and
+            // so the one path where nothing else would ever correct the badge.
+            if let total = try? await repository.unreadTotal() {
+                await PushRegistrar.shared.setBadge(total)
+            }
             state = try await repository.state(of: threadID)
             // Only fetched once actually disclosed — asking earlier would throw
             // 'not authorized' every time and bury a real failure in noise.

@@ -74,6 +74,23 @@ public final class PushRegistrar: NSObject {
         UIApplication.shared.registerForRemoteNotifications()
     }
 
+    /// Writes the app icon badge.
+    ///
+    /// Nothing wrote it before. The server computes a correct unread count and
+    /// sends it with every message push (`migrations/047`), iOS stamps it on the
+    /// icon, and that was the end of it — reading the messages cleared the
+    /// in-app counts and left the icon alone. The number could only ever go
+    /// *up*, because the only payload carrying `badge: 0` is a follow alert,
+    /// and it could never be cleared by the one action a person would expect to
+    /// clear it. A tester reported five.
+    ///
+    /// Failure is swallowed on purpose. A wrong badge is a blemish; an error
+    /// thrown out of a message load because a decoration could not be updated
+    /// would cost the person the thing they actually came for.
+    public func setBadge(_ count: Int) async {
+        try? await UNUserNotificationCenter.current().setBadgeCount(max(0, count))
+    }
+
     /// Called from the app delegate once APNs issues a token.
     public func store(deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()

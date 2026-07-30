@@ -219,6 +219,12 @@ public protocol MessageRepository: AnyObject, Sendable {
     @discardableResult
     func reply(in threadID: UUID, body: String) async throws -> UUID
     func markRead(_ threadID: UUID) async throws
+    /// Unread messages across every conversation, for the app icon badge.
+    ///
+    /// Separate from the per-thread counts the inbox already carries, because
+    /// the badge has to be right after reading a thread reached straight from a
+    /// notification — a path that never loads the inbox at all.
+    func unreadTotal() async throws -> Int
     /// Whether the current session may send at all, without sending anything.
     /// Lets a screen show the sign-in prompt *before* someone types a message
     /// and loses it to a refusal.
@@ -367,6 +373,24 @@ public final class SupabaseMessageRepository: MessageRepository {
         try await client
             .rpc("mark_conversation_read", params: Params(p_thread: threadID))
             .execute()
+    }
+
+    /// A `head` request: PostgREST returns the count in a header and no rows,
+    /// so this costs a round trip and nothing else.
+    ///
+    /// No filter naming my own conversations, because RLS already does it —
+    /// `messages_parties_read` limits this table to threads I am party to
+    /// (`migrations/049`). The only condition worth stating is the one RLS
+    /// cannot know: that a message I sent myself is not unread mail.
+    public func unreadTotal() async throws -> Int {
+        guard let me = client.auth.currentUser?.id else { return 0 }
+        let response = try await client
+            .from("messages")
+            .select("id", head: true, count: .exact)
+            .is("read_at", value: nil)
+            .neq("sender_id", value: me)
+            .execute()
+        return response.count ?? 0
     }
 
     public func gate() async throws -> MessagingGate? {
@@ -652,6 +676,8 @@ public final class InMemoryMessageRepository: MessageRepository, @unchecked Send
     }
 
     public func markRead(_ threadID: UUID) async throws {}
+
+    public func unreadTotal() async throws -> Int { 0 }
 
     public func gate() async throws -> MessagingGate? {
         lock.withLock { gateState }

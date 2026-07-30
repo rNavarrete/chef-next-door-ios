@@ -49,6 +49,9 @@ final class ConversationsViewModel {
         do {
             threads = try await repository.conversations()
             errorMessage = ""
+            // Free — the per-thread counts are already here, so the badge costs
+            // no round trip on the screen most likely to be looked at.
+            await PushRegistrar.shared.setBadge(totalUnread)
         } catch {
             // The fallback is a *reason*, not a restatement. It renders under
             // a heading that already says "Couldn't load your messages", and
