@@ -250,7 +250,17 @@ struct CookingNowView: View {
                 if !model.lit.isEmpty, filters.apply(to: model.lit).isEmpty {
                     filteredEmptyState
                 }
-                if model.lit.isEmpty && !model.isLoading {
+                // A failed load and an empty neighbourhood are not the same
+                // thing, and until now they looked identical: `errorMessage`
+                // was assigned in `load()` and rendered nowhere, so a request
+                // that fell over left "Nobody's cooking" on screen. Seen once
+                // on a cold launch — eighteen kitchens were lit and the app
+                // said none were. The person reading it has no way to tell a
+                // quiet Tuesday from a dropped connection, and only one of
+                // those is worth pulling to refresh.
+                if model.lit.isEmpty && !model.isLoading, let message = model.errorMessage {
+                    loadFailedState(message)
+                } else if model.lit.isEmpty && !model.isLoading {
                     emptyState
                 }
                 darkRow
@@ -321,6 +331,24 @@ struct CookingNowView: View {
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkTertiary)
                 .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 40)
+    }
+
+    /// Deliberately not `emptyState` with different words. That one is a fact
+    /// about the neighbourhood and offers a way to hear about the next kitchen;
+    /// this one is a fact about the request, and the way out is to try again.
+    private func loadFailedState(_ message: String) -> some View {
+        VStack(spacing: 8) {
+            Text(message)
+                .font(LK.Typography.body)
+                .foregroundStyle(LK.Palette.inkQuiet)
+                .multilineTextAlignment(.center)
+            Button("Try again") {
+                Task { await model.load() }
+            }
+            .font(LK.Typography.bodyEmphasis)
+            .foregroundStyle(LK.Palette.action)
         }
         .padding(.vertical, 40)
     }
