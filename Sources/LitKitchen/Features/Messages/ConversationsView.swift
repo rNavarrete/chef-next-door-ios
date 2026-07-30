@@ -127,6 +127,7 @@ struct ConversationsView: View {
     var session: SessionController?
 
     @State private var showingGate = false
+    @State private var openParty: ThreadViewModel.OtherParty?
     @Environment(\.scenePhase) private var scenePhase
 
     /// No account, or an anonymous one. Both mean there is nothing to show and
@@ -176,6 +177,18 @@ struct ConversationsView: View {
                 }
             }
         }
+        // Same two destinations as the thread header, so tapping a face means
+        // one thing wherever you do it.
+        .sheet(item: $openParty) { party in
+            switch party {
+            case .cook(let id):
+                KitchenDeepLinkView(cookID: id)
+            case .buyer(let id):
+                if let profiles = model.profiles {
+                    BuyerProfileView(buyerID: id, profiles: profiles)
+                }
+            }
+        }
         .onDisappear { model.stopListening() }
         // The inbox has the same hole the thread did: `onAppear` does not fire
         // on foreground, so an app resumed on this screen showed the list as it
@@ -219,7 +232,12 @@ struct ConversationsView: View {
                     } label: {
                         ConversationRow(
                             thread: thread,
-                            sign: { await model.signAvatar($0) }
+                            sign: { await model.signAvatar($0) },
+                            onAvatarTap: {
+                                openParty = thread.iAmTheCook
+                                    ? .buyer(thread.buyerID)
+                                    : .cook(thread.cookID)
+                            }
                         )
                     }
                     .buttonStyle(.plain)
@@ -381,6 +399,7 @@ private struct BlockedBuyersView: View {
 private struct ConversationRow: View {
     let thread: Conversation
     let sign: (String) async -> URL?
+    let onAvatarTap: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -391,6 +410,20 @@ private struct ConversationRow: View {
                 size: 46,
                 sign: sign
             )
+            // A second target inside the row that opens the conversation. It
+            // works because the picture of a person is the one part of a row
+            // that already means "this person" rather than "this thread" — and
+            // because 46pt of circle is nowhere near the text.
+            //
+            // `highPriorityGesture`, not a Button: a Button inside a
+            // `NavigationLink` label is swallowed by the link, and the tap
+            // opens the thread instead. `contentShape` first, or only the
+            // drawn pixels are tappable and a miss silently becomes a
+            // navigation.
+            .contentShape(Circle())
+            .highPriorityGesture(TapGesture().onEnded { onAvatarTap() })
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("About \(thread.otherName)")
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
