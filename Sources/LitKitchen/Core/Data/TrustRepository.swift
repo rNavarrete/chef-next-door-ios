@@ -4,7 +4,19 @@ import Supabase
 /// A buyer's review of a completed claim.
 public struct Review: Codable, Sendable, Identifiable, Hashable {
     public let id: UUID
-    public let claimID: UUID
+    /// Null for every review written since claims were retired
+    /// (`migrations/043`) — those are left from a conversation instead, and the
+    /// column only still holds a value on rows older than that.
+    ///
+    /// It was declared non-optional, so decoding a modern review threw, the
+    /// `try?` in `CookDetailView.loadTrust` swallowed it, and the list came back
+    /// empty. The average did not: it comes from the `cook_rating` RPC, which
+    /// aggregates in SQL and never decodes a row. So a kitchen advertised "5.0 ·
+    /// 1 review" above a section with nothing in it, and the review a buyer had
+    /// taken the trouble to write was unreachable. Reported by a tester.
+    ///
+    /// Nothing reads this field. It is kept only because the column exists.
+    public let claimID: UUID?
     public let cookID: UUID
     public let rating: Int
     public let body: String?
