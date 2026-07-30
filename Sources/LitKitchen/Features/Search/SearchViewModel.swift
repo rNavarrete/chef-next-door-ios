@@ -23,6 +23,21 @@ final class SearchViewModel {
     /// feed and the map cannot disagree about where "near you" is.
     var origin: Coordinate { browsing.coordinate }
 
+    /// Search reaches further than the feed, on purpose.
+    ///
+    /// The feed answers "what is near me right now", and 7.5 miles is a fair
+    /// definition of near. Search answers "where can I find sushi", and in
+    /// Southern California that answer is usually a freeway away. At the old
+    /// 12 km both questions got the same radius, so a buyer downtown searching
+    /// "sushi" was told *nothing matching that nearby* while a kitchen 19 miles
+    /// out sat indexed, open, and matching. The kitchen was fine; the question
+    /// being asked of the database was too small.
+    ///
+    /// Rows come back distance-ordered, so widening the net cannot bury a close
+    /// match underneath far ones — the nearest is still first.
+    static let radiusM = 40_000
+    static var radiusMiles: Int { Int((Double(radiusM) / 1609.34).rounded()) }
+
     init(repository: any DiscoveryRepository, browsing: BrowsingOrigin) {
         self.browsing = browsing
         self.repository = repository
@@ -50,7 +65,7 @@ final class SearchViewModel {
         isSearching = true
         defer { isSearching = false }
         do {
-            async let results = repository.search(q, near: origin, radiusM: 12000)
+            async let results = repository.search(q, near: origin, radiusM: Self.radiusM)
             async let terms = repository.expansion(for: q)
             let (r, t) = try await (results, terms)
             guard !Task.isCancelled else { return }

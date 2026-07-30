@@ -198,9 +198,14 @@ struct CookingNowView: View {
                         .buttonStyle(.plain)
                 }
                 if searchModel.lit.isEmpty && searchModel.dark.isEmpty && searchModel.hasSearched && !searchModel.isSearching {
-                    Text("Nothing matching that nearby.")
+                    // Says how far it looked. "Nothing nearby" is unfalsifiable
+                    // — it reads as "this dish does not exist here" when it
+                    // actually means "not inside a radius we never named", and
+                    // the buyer has no way to tell those apart or to react.
+                    Text("Nothing matching that within \(SearchViewModel.radiusMiles) miles.")
                         .font(LK.Typography.body)
                         .foregroundStyle(LK.Palette.inkQuiet)
+                        .multilineTextAlignment(.center)
                         .padding(.top, 40)
                 }
             }
