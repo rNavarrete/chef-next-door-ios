@@ -32,6 +32,15 @@ final class CookingNowViewModel {
         defer { isLoading = false }
         do {
             let all = try await repository.cookingNow(near: origin, radiusM: DiscoveryRadius.defaultM, includeClosed: true)
+            // The feed runs from `.task(id: browsing.coordinate)`, which
+            // cancels and restarts every time the origin settles during launch.
+            // Without this guard a superseded load could return *after* its
+            // replacement and overwrite good rows with its own — an empty feed
+            // with no error, because nothing failed. Seen on launch: 72
+            // kitchens were lit and the app said none were, while search from
+            // the same origin found them, because `SearchViewModel` has always
+            // had this line and this one did not.
+            guard !Task.isCancelled else { return }
             lit = all.filter(\.isCooking)
             dark = all.filter { !$0.isCooking }
             errorMessage = nil
