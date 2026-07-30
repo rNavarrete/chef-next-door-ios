@@ -107,9 +107,19 @@ version go out without re-review.
 
 ## Known, so nobody reports them as new
 
-- Push notifications and Live Activities have not been tested on a real device
-  end to end. They *should* work — the production entitlement is verified in
-  the shipped IPA — but nobody has watched one arrive.
+- **Push alerts are confirmed working on a real device**, 30 July 2026.
+  `share_address` from the demo cook produced an APNs 200 against the buyer's
+  production token and the notification arrived — verified in Notification
+  Center, not inferred from the 200. The banner style is Temporary, so it
+  vanishes in seconds; twice now that has been mistaken for nothing having
+  happened. Check Notification Center before concluding a push failed.
+- **Live Activities are still unconfirmed.** Every link that can be inspected
+  is correct: the topic carries the `.push-type.liveactivity` suffix, the
+  push-type header matches, `aps.timestamp` is in seconds, and all seven
+  `ContentState` fields are present and correctly named. APNs returns 200. What
+  nobody has yet seen is a card change on a Lock Screen — and a push aimed at
+  an activity that has already ended returns 200 and does nothing, so the 200
+  is not evidence on its own.
 - Cooks outside Los Angeles County are attached to their real county health
   department, but the MEHKO opt-in flag for those counties is set conservatively
   to "not opted in" pending verification. A cook in Orange County will be warned
