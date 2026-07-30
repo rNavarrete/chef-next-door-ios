@@ -443,14 +443,22 @@ struct ThreadView: View {
                 break
             }
         }
+        // Opens the sheet, never closes it, and never clears the gate.
+        //
+        // This used to run both directions off one value: `showingGate = gate
+        // != nil`, which forced `onDismiss` to null the gate or the sheet
+        // reopened on the next redraw. The cost was that dismissing the sheet
+        // also erased the fact that this person cannot send — leaving a live
+        // composer on a thread that would refuse every message.
+        //
+        // `gate` is now what it says it is: whether sending is possible. The
+        // sheet is a separate question, asked by this and by the button in
+        // `gatedComposer`. Nothing reopens on redraw, because `onChange` fires
+        // on change and dismissal does not change the gate.
         .onChange(of: model.gate) { _, gate in
-            showingGate = gate != nil
+            if gate != nil { showingGate = true }
         }
-        .sheet(isPresented: $showingGate, onDismiss: {
-            // Clearing on dismiss matters: without it the gate stays set and
-            // the sheet reopens the instant the view redraws.
-            model.gate = nil
-        }) {
+        .sheet(isPresented: $showingGate) {
             if let session, let profiles {
                 MessagingGateSheet(session: session, profiles: profiles) {
                     Task {
@@ -584,7 +592,60 @@ struct ThreadView: View {
         .disabled(model.isWorking)
     }
 
+    @ViewBuilder
     private var composer: some View {
+        if let gate = model.gate {
+            gatedComposer(gate)
+        } else {
+            sendableComposer
+        }
+    }
+
+    /// Shown in place of the composer when this person cannot send yet.
+    ///
+    /// The gate sheet was the only signal, and it is dismissible. "Not now"
+    /// dropped someone into a thread with a live text field, an enabled send
+    /// button and an order button — none of which could ever work. They typed a
+    /// whole message and found out afterwards. A tester reported this as being
+    /// able to message a kitchen without an account: nothing was ever sent
+    /// (`send_message` refuses an anonymous caller, `migrations/041`), but the
+    /// refusal is invisible and arrives too late to be useful.
+    ///
+    /// So the ask moves in front of the typing. One tap reopens the same sheet,
+    /// and `model.draft` is untouched — anything already written survives
+    /// signing in.
+    private func gatedComposer(_ gate: MessagingGate) -> some View {
+        VStack(spacing: 8) {
+            Text(gate == .needsAccount
+                 ? "Sign in to message \(model.title)"
+                 : "Add your name to message \(model.title)")
+                .font(LK.Typography.meta)
+                .foregroundStyle(LK.Palette.inkTertiary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                showingGate = true
+            } label: {
+                Text(gate == .needsAccount ? "Sign in" : "Add your name")
+                    .font(LK.Typography.navBarEmphasis)
+                    .foregroundStyle(LK.Palette.inkOnAction)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(
+                        LK.Palette.action,
+                        in: RoundedRectangle(cornerRadius: LK.Metrics.radiusButton, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, LK.Metrics.feedGutter)
+        .padding(.vertical, 10)
+        .background(LK.Palette.ground)
+        .overlay(alignment: .top) {
+            Rectangle().fill(LK.Palette.hairline).frame(height: 1)
+        }
+    }
+
+    private var sendableComposer: some View {
         VStack(spacing: 6) {
             actionBar
             if !model.errorMessage.isEmpty {
