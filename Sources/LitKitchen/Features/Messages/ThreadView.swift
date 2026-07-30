@@ -23,6 +23,28 @@ final class ThreadViewModel {
     /// claim screen records what it was about.
     let claimID: UUID?
 
+    /// The person on the other side, whichever side that is. Set from the
+    /// conversation, because `subject` only carries a cook — a thread opened
+    /// from the inbox by a cook has no id in it for the buyer at all.
+    var otherPartyID: UUID?
+
+    /// Where tapping the name should go. A cook is a kitchen with a public
+    /// page; a buyer is a person with a history, and only their cook may see
+    /// it.
+    var otherParty: OtherParty? {
+        let cook = state?.iAmTheCook ?? iAmTheCook
+        if cook { return otherPartyID.map(OtherParty.buyer) }
+        if let id = otherPartyID ?? cookIDForOrdering { return .cook(id) }
+        if case .cook(let id) = subject { return .cook(id) }
+        return nil
+    }
+
+    enum OtherParty: Hashable, Identifiable {
+        case cook(UUID)
+        case buyer(UUID)
+        var id: UUID { switch self { case .cook(let i), .buyer(let i): i } }
+    }
+
     var messages: [Message] = []
     var draft = ""
     var isLoading = false
@@ -342,6 +364,7 @@ struct ThreadView: View {
     @State private var showingBlockConfirm = false
     @State private var showingOrder = false
     @State private var showingReview = false
+    @State private var openParty: ThreadViewModel.OtherParty?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -354,6 +377,30 @@ struct ThreadView: View {
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // The title, made tappable. Put here rather than on the row in the
+            // inbox: a name inside a list row is a tap target nested inside the
+            // one that opens the conversation, and the two are a few points
+            // apart. This is also where the question actually occurs to you —
+            // mid-thread, wondering who you are talking to.
+            if let party = model.otherParty {
+                ToolbarItem(placement: .principal) {
+                    Button {
+                        openParty = party
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(model.title)
+                                .font(LK.Typography.navBarEmphasis)
+                                .foregroundStyle(LK.Palette.ink)
+                            Image(systemName: "chevron.right")
+                                .font(LK.Typography.ui(11, weight: .semibold))
+                                .foregroundStyle(LK.Palette.inkTertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("About \(model.title)")
+                }
+            }
             // Cook side only. A buyer already blocks and reports the *kitchen*
             // from the cook's profile (028); duplicating it here would give
             // them two different-looking routes to the same act.
@@ -417,6 +464,19 @@ struct ThreadView: View {
             await model.checkGate()
             await model.load()
             await model.loadMenuIfNeeded(discovery: RootView.discoveryRepository)
+        }
+        // A cook is the kitchen page every buyer already sees; a buyer is the
+        // private history only their cook may read. Same tap, two answers,
+        // because the two sides of this app are not symmetric.
+        .sheet(item: $openParty) { party in
+            switch party {
+            case .cook(let id):
+                KitchenDeepLinkView(cookID: id)
+            case .buyer(let id):
+                if let profiles {
+                    BuyerProfileView(buyerID: id, profiles: profiles)
+                }
+            }
         }
         .onDisappear { model.stopListening() }
         // Backgrounding does not fire `onDisappear`, and foregrounding does not

@@ -105,6 +105,9 @@ final class ConversationsViewModel {
         // The thread is already open, so the cook isn't in `subject`. Ordering
         // again from inside an existing thread needs it.
         model.cookIDForOrdering = conversation.iAmTheCook ? nil : conversation.cookID
+        // Whoever is on the other side, so tapping their name in the header can
+        // open the right page.
+        model.otherPartyID = conversation.iAmTheCook ? conversation.buyerID : conversation.cookID
         return model
     }
 

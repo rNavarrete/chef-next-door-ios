@@ -36,9 +36,55 @@ public enum MessagingGate: Equatable, Sendable {
     case needsProfile
 }
 
+/// What a cook may know about one of their buyers. See `migrations/068`.
+///
+/// The `withMe` figures are things the cook could have counted by scrolling
+/// their own thread. The `total` ones cross into conversations they cannot
+/// read, which is why they arrive as bare counts from a `SECURITY DEFINER`
+/// function and not as anything enumerable — "buys a lot and turns up" is a
+/// fair thing for a cook to know, "buys from these four kitchens" is not.
+public struct BuyerProfile: Decodable, Sendable, Hashable {
+    public let displayName: String
+    public let avatarPath: String?
+    public let memberSince: Date
+    public let ordersWithMe: Int
+    /// The headline number. A pickup is the only message that means food
+    /// actually changed hands — the structured order flow is optional, and
+    /// counting orders reports a real repeat buyer as having bought nothing.
+    public let pickupsWithMe: Int
+    public let firstOrderWithMe: Date?
+    public let lastOrderWithMe: Date?
+    public let ordersTotal: Int
+    public let pickupsTotal: Int
+    /// Counted, never listed. Reviews render anonymously on a kitchen page, and
+    /// that is what makes an honest two-star review possible.
+    public let reviewsWritten: Int
+    public let reviewForMe: String?
+    public let reviewForMeStars: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case avatarPath = "avatar_path"
+        case memberSince = "member_since"
+        case ordersWithMe = "orders_with_me"
+        case pickupsWithMe = "pickups_with_me"
+        case firstOrderWithMe = "first_order_with_me"
+        case lastOrderWithMe = "last_order_with_me"
+        case ordersTotal = "orders_total"
+        case pickupsTotal = "pickups_total"
+        case reviewsWritten = "reviews_written"
+        case reviewForMe = "review_for_me"
+        case reviewForMeStars = "review_for_me_stars"
+    }
+}
+
 @MainActor
 public protocol ProfileRepository: AnyObject {
     func myProfile() async throws -> Profile?
+    /// Nil when the caller has no standing to ask — the function raises 42501
+    /// for anyone who is not this buyer's cook, and that is a normal answer
+    /// here rather than an error worth surfacing.
+    func buyerProfile(for buyerID: UUID) async throws -> BuyerProfile?
     func saveProfile(name: String, avatarPath: String?) async throws
     /// Uploads image data and returns the storage path to hand to `saveProfile`.
     func uploadAvatar(_ data: Data) async throws -> String
@@ -65,6 +111,15 @@ public final class SupabaseProfileRepository: ProfileRepository {
         return rows.first.map {
             Profile(displayName: $0.display_name, avatarPath: $0.avatar_path, createdAt: $0.created_at)
         }
+    }
+
+    public func buyerProfile(for buyerID: UUID) async throws -> BuyerProfile? {
+        struct Params: Encodable { let p_buyer: UUID }
+        let rows: [BuyerProfile] = try await client
+            .rpc("buyer_profile", params: Params(p_buyer: buyerID))
+            .execute()
+            .value
+        return rows.first
     }
 
     public func saveProfile(name: String, avatarPath: String?) async throws {
