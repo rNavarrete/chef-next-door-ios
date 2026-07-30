@@ -113,13 +113,20 @@ version go out without re-review.
   Center, not inferred from the 200. The banner style is Temporary, so it
   vanishes in seconds; twice now that has been mistaken for nothing having
   happened. Check Notification Center before concluding a push failed.
-- **Live Activities are still unconfirmed.** Every link that can be inspected
-  is correct: the topic carries the `.push-type.liveactivity` suffix, the
-  push-type header matches, `aps.timestamp` is in seconds, and all seven
-  `ContentState` fields are present and correctly named. APNs returns 200. What
-  nobody has yet seen is a card change on a Lock Screen — and a push aimed at
-  an activity that has already ended returns 200 and does nothing, so the 200
-  is not evidence on its own.
+- **Live Activities are confirmed working on a real device**, 30 July 2026. A
+  buyer ordered from Javier O.; the card appeared reading "hasn't answered yet",
+  and a `share_address` pushed from the cook's side changed it in place to
+  "SAID YES" with the address and a Directions button. Changed remotely, with
+  the phone locked and the app closed. Both push types — alert and
+  liveactivity — delivered in the same moment.
+- **Stale device tokens are not being cleaned up.** In the same test Apple
+  returned `410 Unregistered` for a token from a sideloaded Debug build, and
+  the row was still in `device_tokens` afterwards. The edge function has the
+  right code for this — delete on 410 using the service-role key — so either
+  `SUPABASE_SERVICE_ROLE_KEY` is unset in the deployed function's environment
+  or the deployment predates that code. Harmless per push, but tokens will
+  accumulate forever instead of retiring themselves, and this is the same class
+  of problem migration 059 was written for. That one row was removed by hand.
 - Cooks outside Los Angeles County are attached to their real county health
   department, but the MEHKO opt-in flag for those counties is set conservatively
   to "not opted in" pending verification. A cook in Orange County will be warned
