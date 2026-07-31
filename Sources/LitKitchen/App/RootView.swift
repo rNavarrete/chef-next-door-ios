@@ -43,6 +43,12 @@ extension Notification.Name {
 
 struct RootView: View {
     @State private var selection: RootTab = .cooking
+    /// Unread messages, for the tab badge. Refreshed rather than observed: the
+    /// count changes on the server (a new message) and on the device (reading
+    /// one), and a single cheap `head` query answers both without wiring this
+    /// view to every screen that could move it.
+    @State private var unread = 0
+    @Environment(\.scenePhase) private var rootScenePhase
     /// A thread arrived at from outside the app — today, the Live Activity.
     @State private var deepLink: ThreadLink?
     /// A cook's shared link, arriving from outside the app.
@@ -94,6 +100,14 @@ struct RootView: View {
     @MainActor static let profileRepository: (any ProfileRepository)? =
         isConfigured ? SupabaseProfileRepository() : nil
 
+    private func refreshUnread() async {
+        guard let repo = Self.messageRepository else { return }
+        unread = (try? await repo.unreadTotal()) ?? 0
+        // Same number, two places. The icon badge is written here too so it
+        // cannot drift from the one on the tab.
+        await PushRegistrar.shared.setBadge(unread)
+    }
+
     var body: some View {
         TabView(selection: $selection) {
             ForEach(RootTab.allCases) { tab in
@@ -106,10 +120,23 @@ struct RootView: View {
                     }
                 }
                 .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                // Where the unread count went when `Kitchen | Messages` became
+                // `Kitchen | You`. It used to sit in a segment label inside the
+                // Account tab — a number about messages, filed under something
+                // else, on a screen a cook might not open for days.
+                .badge(tab == .messages ? unread : 0)
                 .tag(tab)
             }
         }
         .tint(LK.Palette.action)
+        .task { await refreshUnread() }
+        // Coming back from the background, and leaving a tab — reading a thread
+        // is the commonest way this number goes down, and the way back out is a
+        // tab tap.
+        .onChange(of: rootScenePhase) { _, phase in
+            if phase == .active { Task { await refreshUnread() } }
+        }
+        .onChange(of: selection) { _, _ in Task { await refreshUnread() } }
         // The Live Activity's whole point is getting back to the conversation.
         .onOpenURL { url in
             if let id = DeepLink.threadID(from: url) {

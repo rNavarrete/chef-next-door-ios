@@ -195,7 +195,9 @@ struct MessagingGateSheet: View {
             if let photoData {
                 path = try await profiles.uploadAvatar(photoData)
             }
-            try await profiles.saveProfile(name: name, avatarPath: path)
+            // Nil, not empty: this sheet only asks for a name, and passing an
+            // empty string here would clear a bio the person wrote earlier.
+            try await profiles.saveProfile(name: name, avatarPath: path, bio: nil)
             onReady()
             dismiss()
         } catch {

@@ -26,6 +26,7 @@ struct ProfileView: View {
 
     @State private var profile: Profile?
     @State private var name = ""
+    @State private var bio = ""
     @State private var photo: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var avatarURL: URL?
@@ -37,7 +38,8 @@ struct ProfileView: View {
 
     private var isDirty: Bool {
         photoData != nil ||
-        name.trimmingCharacters(in: .whitespaces) != (profile?.displayName ?? "")
+        name.trimmingCharacters(in: .whitespaces) != (profile?.displayName ?? "") ||
+        bio.trimmingCharacters(in: .whitespaces) != (profile?.bio ?? "")
     }
 
     var body: some View {
@@ -123,6 +125,38 @@ struct ProfileView: View {
                     label: "Name", text: $name, placeholder: "Your name",
                     capitalization: .words
                 )
+            }
+
+            // Prompted with an example rather than "Bio". Asked cold, people
+            // write nothing or write a joke; asked "when do you usually
+            // collect", they write the one fact a cook actually needs.
+            VStack(alignment: .leading, spacing: 6) {
+                TextField(
+                    "I work nights — usually collecting after 10.",
+                    text: $bio, axis: .vertical
+                )
+                .lineLimit(2...5)
+                .font(LK.Typography.body)
+                .foregroundStyle(LK.Palette.ink)
+                .padding(14)
+                .background(LK.Palette.surface, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous)
+                        .strokeBorder(LK.Palette.hairline, lineWidth: 1)
+                }
+
+                HStack {
+                    Text("Cooks you message can see this.")
+                    Spacer()
+                    // Only once it is close enough to matter.
+                    if bio.count > 240 {
+                        Text("\(280 - bio.count)")
+                            .monospacedDigit()
+                            .foregroundStyle(bio.count > 280 ? LK.Palette.heatInk : LK.Palette.inkTertiary)
+                    }
+                }
+                .font(LK.Typography.meta)
+                .foregroundStyle(LK.Palette.inkTertiary)
             }
         }
         .onChange(of: photo) { _, item in
@@ -215,6 +249,7 @@ struct ProfileView: View {
         defer { isLoading = false }
         profile = try? await profiles.myProfile()
         name = profile?.displayName ?? ""
+        bio = profile?.bio ?? ""
         avatarURL = try? await profiles.avatarURL(for: profile?.avatarPath)
     }
 
@@ -225,7 +260,7 @@ struct ProfileView: View {
         do {
             var path: String?
             if let photoData { path = try await profiles.uploadAvatar(photoData) }
-            try await profiles.saveProfile(name: name, avatarPath: path)
+            try await profiles.saveProfile(name: name, avatarPath: path, bio: bio)
             photoData = nil
             photo = nil
             await load()

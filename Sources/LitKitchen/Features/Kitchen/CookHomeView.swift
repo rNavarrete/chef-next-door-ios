@@ -9,20 +9,22 @@ struct CookHomeView: View {
 
     @State private var confirmingDelete = false
     @State private var deleteFailure: String?
-    @State private var messagesModel: ConversationsViewModel? = {
-        guard let repo = RootView.messageRepository else { return nil }
-        return ConversationsViewModel(repository: repo, profiles: RootView.profileRepository)
-    }()
-
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                // Claims retired with 043 — a cook's orders arrive as messages
-                // now, so the inbox and the conversation list were the same
-                // thing wearing two labels.
+                // Was `Kitchen | Messages`, and the Messages half listed the
+                // same threads in the same order as the Messages tab an inch
+                // below it. The unread count that used to live in this label
+                // moved to a badge on that tab, which is where iOS users look
+                // for it anyway.
+                //
+                // `You` is what a cook had nowhere else to see: the buying side
+                // of their own account. Their kitchen is public and complete;
+                // the fact that they also collect from four other kitchens
+                // appeared in no screen in the product.
                 Picker("", selection: $selection) {
                     Text("Kitchen").tag(0)
-                    Text(messagesLabel).tag(2)
+                    Text("You").tag(1)
                 }
                 .pickerStyle(.segmented)
 
@@ -54,18 +56,16 @@ struct CookHomeView: View {
                     repository: SupabaseCookRepository(cookID: cookID),
                     cookID: cookID
                 ))
-            } else if selection == 2 {
-                // Wrapped in its own stack: CookHomeView is a tab root, not a
-                // pushed screen, so a thread has nowhere to go without one.
-                NavigationStack {
-                    if let messagesModel {
-                        ConversationsView(model: messagesModel, session: session)
+            } else if selection == 1 {
+                if let profiles = RootView.profileRepository {
+                    ScrollView {
+                        YouView(session: session, profiles: profiles)
+                            .padding(LK.Metrics.screenPadding)
                     }
                 }
             }
         }
         .background(LK.Palette.ground)
-        .task { await messagesModel?.load() }
         .deleteAccountConfirmation(isPresented: $confirmingDelete, session: session) {
             deleteFailure = $0
         }
@@ -74,10 +74,5 @@ struct CookHomeView: View {
         } message: {
             Text(deleteFailure ?? "")
         }
-    }
-
-    private var messagesLabel: String {
-        let unread = messagesModel?.totalUnread ?? 0
-        return unread > 0 ? "Messages (\(unread))" : "Messages"
     }
 }

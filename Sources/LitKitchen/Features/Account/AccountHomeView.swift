@@ -35,8 +35,12 @@ struct AccountHomeView: View {
                 }
                 .padding(.top, 4)
 
-                GroupedCard {
-                    row("Profile", detail: "Your name and photo") { showingProfile = true }
+                // The same screen a cook now gets under `You`, so the buying
+                // side of an account looks identical whichever kind of account
+                // it is attached to. Previously a row that opened a sheet with
+                // a name and a photo in it and nothing else.
+                if let profiles = RootView.profileRepository {
+                    YouView(session: session, profiles: profiles)
                 }
 
                 // The one place becoming a cook is offered, and it is framed as

@@ -14,11 +14,14 @@ public struct Profile: Equatable, Sendable {
     /// private (unlike `kitchen-photos`), so rendering one means minting a
     /// signed URL — see ``ProfileRepository/avatarURL(for:)``.
     public let avatarPath: String?
+    /// Your own sentence. Optional, and most people will never write one.
+    public let bio: String?
     public let createdAt: Date
 
-    public init(displayName: String, avatarPath: String?, createdAt: Date) {
+    public init(displayName: String, avatarPath: String?, bio: String? = nil, createdAt: Date) {
         self.displayName = displayName
         self.avatarPath = avatarPath
+        self.bio = bio
         self.createdAt = createdAt
     }
 }
@@ -36,6 +39,38 @@ public enum MessagingGate: Equatable, Sendable {
     case needsProfile
 }
 
+/// One kitchen the caller has bought from, with their own review of it.
+///
+/// One list rather than two. "Cooks I've bought from" and "reviews I've
+/// written" are the same rows read twice, and a review with no kitchen attached
+/// is a sentence with nowhere to go.
+public struct BuyingHistoryEntry: Decodable, Sendable, Hashable, Identifiable {
+    public let cookID: UUID
+    public let cookName: String
+    public let avatarURL: String?
+    public let neighborhood: String?
+    public let pickups: Int
+    public let orders: Int
+    public let lastAt: Date
+    public let myRating: Int?
+    public let myReview: String?
+    public let reviewedAt: Date?
+
+    public var id: UUID { cookID }
+
+    enum CodingKeys: String, CodingKey {
+        case cookID = "cook_id"
+        case cookName = "cook_name"
+        case avatarURL = "avatar_url"
+        case neighborhood
+        case pickups, orders
+        case lastAt = "last_at"
+        case myRating = "my_rating"
+        case myReview = "my_review"
+        case reviewedAt = "reviewed_at"
+    }
+}
+
 /// What a cook may know about one of their buyers. See `migrations/068`.
 ///
 /// The `withMe` figures are things the cook could have counted by scrolling
@@ -46,6 +81,10 @@ public enum MessagingGate: Equatable, Sendable {
 public struct BuyerProfile: Decodable, Sendable, Hashable {
     public let displayName: String
     public let avatarPath: String?
+    /// The one thing a buyer knows that a cook cannot work out from history —
+    /// "I work nights, I usually collect after ten". Same audience as the
+    /// display name; see `profiles_self`.
+    public let bio: String?
     public let memberSince: Date
     public let ordersWithMe: Int
     /// The headline number. A pickup is the only message that means food
@@ -65,6 +104,7 @@ public struct BuyerProfile: Decodable, Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case displayName = "display_name"
         case avatarPath = "avatar_path"
+        case bio
         case memberSince = "member_since"
         case ordersWithMe = "orders_with_me"
         case pickupsWithMe = "pickups_with_me"
@@ -85,7 +125,12 @@ public protocol ProfileRepository: AnyObject {
     /// for anyone who is not this buyer's cook, and that is a normal answer
     /// here rather than an error worth surfacing.
     func buyerProfile(for buyerID: UUID) async throws -> BuyerProfile?
-    func saveProfile(name: String, avatarPath: String?) async throws
+    /// `bio` is three-state, matching the RPC: nil leaves what is there alone,
+    /// empty clears it. Renaming yourself must not wipe a sentence you wrote
+    /// last month.
+    func saveProfile(name: String, avatarPath: String?, bio: String?) async throws
+    /// Kitchens the caller has bought from, with their own review of each.
+    func buyingHistory() async throws -> [BuyingHistoryEntry]
     /// Uploads image data and returns the storage path to hand to `saveProfile`.
     func uploadAvatar(_ data: Data) async throws -> String
     /// Signed URL for a private avatar. Nil when there is no avatar.
@@ -105,11 +150,13 @@ public final class SupabaseProfileRepository: ProfileRepository {
         struct Row: Decodable {
             let display_name: String
             let avatar_path: String?
+            let bio: String?
             let created_at: Date
         }
         let rows: [Row] = try await client.rpc("my_profile").execute().value
         return rows.first.map {
-            Profile(displayName: $0.display_name, avatarPath: $0.avatar_path, createdAt: $0.created_at)
+            Profile(displayName: $0.display_name, avatarPath: $0.avatar_path,
+                    bio: $0.bio, createdAt: $0.created_at)
         }
     }
 
@@ -122,7 +169,11 @@ public final class SupabaseProfileRepository: ProfileRepository {
         return rows.first
     }
 
-    public func saveProfile(name: String, avatarPath: String?) async throws {
+    public func buyingHistory() async throws -> [BuyingHistoryEntry] {
+        try await client.rpc("my_buying_history").execute().value
+    }
+
+    public func saveProfile(name: String, avatarPath: String?, bio: String?) async throws {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ProfileError.nameRequired }
         guard trimmed.count <= 50 else { throw ProfileError.nameTooLong }
@@ -130,9 +181,11 @@ public final class SupabaseProfileRepository: ProfileRepository {
         struct Params: Encodable {
             let p_name: String
             let p_avatar: String?
+            let p_bio: String?
         }
         try await client
-            .rpc("upsert_my_profile", params: Params(p_name: trimmed, p_avatar: avatarPath))
+            .rpc("upsert_my_profile",
+                 params: Params(p_name: trimmed, p_avatar: avatarPath, p_bio: bio))
             .execute()
     }
 
