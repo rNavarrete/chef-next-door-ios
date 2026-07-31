@@ -33,6 +33,10 @@ public final class SessionController {
 
     public var isCook: Bool { cookID != nil }
 
+    /// Live subscription to the client's own session. Held so it is started
+    /// once and lives as long as the app.
+    private var authObserver: Task<Void, Never>?
+
     public init(client: SupabaseClient = SupabaseEnvironment.shared) {
         self.client = client
     }
@@ -47,7 +51,49 @@ public final class SessionController {
     /// Restores an existing session, if there is one. Supabase persists the
     /// refresh token in the keychain, so an anonymous identity survives
     /// relaunch — losing it would orphan the buyer's claims.
+    /// Tracks the client's session for the life of the app.
+    ///
+    /// Without this, `restore()` was the only thing that ever set `userID` — a
+    /// single sample, taken once, with a `try?` around it. When
+    /// `client.auth.session` failed on a cold start (a token refresh in flight,
+    /// a slow network) nothing was set and nothing retried, so the app spent
+    /// that whole launch believing nobody was signed in.
+    ///
+    /// The client did not agree. It kept its own session, refreshed its own
+    /// token, and answered every RPC — so messages sent, orders posted, and the
+    /// Account tab showed a sign-in screen the entire time. Reported from a
+    /// real device: messages that had genuinely been delivered, from a person
+    /// the app was telling to sign in. Relaunching "fixed" it because
+    /// relaunching takes the sample again.
+    ///
+    /// `authStateChanges` emits `.initialSession` the moment it is attached and
+    /// every change after — including the `.tokenRefreshed` that was already
+    /// happening silently. One source of truth instead of one lucky read.
+    public func observeAuth() {
+        guard authObserver == nil else { return }
+        authObserver = Task { [weak self] in
+            guard let client = self?.client else { return }
+            for await (event, session) in client.auth.authStateChanges {
+                guard let self else { return }
+                switch event {
+                case .signedOut, .userDeleted:
+                    userID = nil; cookID = nil; email = nil; isAnonymous = true
+                default:
+                    guard let session else { continue }
+                    userID = session.user.id
+                    isAnonymous = session.user.isAnonymous
+                    email = session.user.email
+                    await refreshCookStatus()
+                }
+            }
+        }
+    }
+
     public func restore() async {
+        // Both exits, including the reinstall branch below, which signs out —
+        // the observer handles that event correctly and must be running to see
+        // anything that happens afterwards.
+        defer { observeAuth() }
         // Deleting the app has to sign you out.
         //
         // Supabase stores its session in the keychain, which **survives app
