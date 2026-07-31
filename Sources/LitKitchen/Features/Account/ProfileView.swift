@@ -52,6 +52,7 @@ struct ProfileView: View {
                         anonymous
                     } else {
                         identity
+                        bioField
                         details
                         signOut
                     }
@@ -89,6 +90,45 @@ struct ProfileView: View {
 
     // MARK: - Signed in
 
+    /// Its own row, under the avatar and the name — not beside them. It went
+    /// in as a third column of that `HStack` first, which squeezed the field to
+    /// a sliver reading "I work night…" next to a name box.
+    ///
+    /// Prompted with an example rather than the word "Bio". Asked cold, people
+    /// write nothing or write a joke; asked "when do you usually collect", they
+    /// write the one fact a cook actually needs.
+    private var bioField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextField(
+                "I work nights — usually collecting after 10.",
+                text: $bio, axis: .vertical
+            )
+            .lineLimit(2...5)
+            .font(LK.Typography.body)
+            .foregroundStyle(LK.Palette.ink)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(LK.Palette.surface, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous)
+                    .strokeBorder(LK.Palette.hairline, lineWidth: 1)
+            }
+
+            HStack {
+                Text("Cooks you message can see this.")
+                Spacer()
+                // Only once it is close enough to matter.
+                if bio.count > 240 {
+                    Text("\(280 - bio.count)")
+                        .monospacedDigit()
+                        .foregroundStyle(bio.count > 280 ? LK.Palette.heatInk : LK.Palette.inkTertiary)
+                }
+            }
+            .font(LK.Typography.meta)
+            .foregroundStyle(LK.Palette.inkTertiary)
+        }
+    }
+
     private var identity: some View {
         HStack(spacing: 14) {
             PhotosPicker(selection: $photo, matching: .images, photoLibrary: .shared()) {
@@ -125,38 +165,6 @@ struct ProfileView: View {
                     label: "Name", text: $name, placeholder: "Your name",
                     capitalization: .words
                 )
-            }
-
-            // Prompted with an example rather than "Bio". Asked cold, people
-            // write nothing or write a joke; asked "when do you usually
-            // collect", they write the one fact a cook actually needs.
-            VStack(alignment: .leading, spacing: 6) {
-                TextField(
-                    "I work nights — usually collecting after 10.",
-                    text: $bio, axis: .vertical
-                )
-                .lineLimit(2...5)
-                .font(LK.Typography.body)
-                .foregroundStyle(LK.Palette.ink)
-                .padding(14)
-                .background(LK.Palette.surface, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: LK.Metrics.radiusInner, style: .continuous)
-                        .strokeBorder(LK.Palette.hairline, lineWidth: 1)
-                }
-
-                HStack {
-                    Text("Cooks you message can see this.")
-                    Spacer()
-                    // Only once it is close enough to matter.
-                    if bio.count > 240 {
-                        Text("\(280 - bio.count)")
-                            .monospacedDigit()
-                            .foregroundStyle(bio.count > 280 ? LK.Palette.heatInk : LK.Palette.inkTertiary)
-                    }
-                }
-                .font(LK.Typography.meta)
-                .foregroundStyle(LK.Palette.inkTertiary)
             }
         }
         .onChange(of: photo) { _, item in
