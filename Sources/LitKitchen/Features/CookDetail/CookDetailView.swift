@@ -256,6 +256,21 @@ struct CookDetailView: View {
             )
             .allowsHitTesting(false)
         }
+        .overlay(alignment: .top) {
+            // The status bar sits on top of this photo and is drawn in white.
+            // Over Mateos' pale mashed potato the clock was barely readable —
+            // the feed already solves this with a frosted strip, and the page
+            // with the *largest* photo in the app had nothing.
+            //
+            // A gradient rather than a bar: it has to disappear over a dark
+            // photo, where a strip would be a grey band across somebody's food.
+            LinearGradient(
+                colors: [.black.opacity(0.28), .clear],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 96)
+            .allowsHitTesting(false)
+        }
     }
 
     /// 224 → 188. The page's job is helping someone decide, and the deciding

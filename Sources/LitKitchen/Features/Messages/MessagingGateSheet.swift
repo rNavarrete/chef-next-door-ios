@@ -26,6 +26,7 @@ struct MessagingGateSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
+    @State private var showingEmailSignIn = false
     @State private var photo: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var isSaving = false
@@ -67,6 +68,14 @@ struct MessagingGateSheet: View {
             }
         }
         .task { await refreshStep() }
+        // Re-checks on dismissal, so signing in by email lands back here with
+        // the name step already showing rather than the account step it just
+        // satisfied.
+        .sheet(isPresented: $showingEmailSignIn, onDismiss: {
+            Task { await refreshStep() }
+        }) {
+            AccountView(session: session)
+        }
     }
 
     private var header: some View {
@@ -96,6 +105,21 @@ struct MessagingGateSheet: View {
                     .foregroundStyle(LK.Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            // Apple was the only way through this sheet, while the Account tab
+            // offered email, a password and "Create an account". So somebody
+            // who will not use an Apple ID hit a dead end at the exact moment
+            // they were trying to message a cook, and nothing told them the
+            // app supports the thing they wanted.
+            //
+            // Presenting the existing screen rather than rebuilding the form:
+            // one sign-in flow, and the gate re-checks itself on dismissal.
+            Button("Use an email address instead") {
+                showingEmailSignIn = true
+            }
+            .font(LK.Typography.body)
+            .foregroundStyle(LK.Palette.action)
+            .frame(minHeight: 44)
+
             // Only true when there is an anonymous identity to upgrade. Fully
             // signed out, Apple creates a *new* account and nothing carries
             // over — promising otherwise is a promise the sign-in cannot keep.

@@ -483,16 +483,43 @@ struct LitKitchenCard: View {
         .accessibilityLabel(accessibilityText)
     }
 
+    /// The name gives way, the facts do not.
+    ///
+    /// This was one joined string with `lineLimit(1)`, which truncates from the
+    /// end — so a long cook name ate the two things a buyer decides on. "Demo
+    /// Kitchen (Chef Next Door) · nearb…" lost the distance mid-word and the
+    /// "since" time entirely, on the card that is supposed to answer *how far*
+    /// and *how recently*.
+    ///
+    /// Split, with the facts pinned by `fixedSize` and a higher layout
+    /// priority. A name that does not fit is now the thing that shortens,
+    /// which is the right trade: you can recognise a kitchen from a clipped
+    /// name, and you cannot recover a distance that was never drawn.
     private var metaLine: some View {
         HStack(spacing: 6) {
             LampDot(tier: tier)
-            Text(metaText)
-                .font(LK.Typography.meta)
-                .foregroundStyle(LK.Palette.inkTertiary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
+            HStack(spacing: 0) {
+                Text(result.displayName)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(0)
+                Text(factsText)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+            .font(LK.Typography.meta)
+            .foregroundStyle(LK.Palette.inkTertiary)
             if result.isVerified { VerifiedBadge(size: 13) }
         }
+    }
+
+    /// Distance and freshness, with their own leading separator so the name can
+    /// be truncated without stranding a dot.
+    private var factsText: String {
+        var parts = [result.distanceLabel]
+        if let since = result.sinceLabel { parts.append(since) }
+        return " · " + parts.joined(separator: " · ")
     }
 
     private var metaText: String {
