@@ -62,7 +62,7 @@ settings:
     # accepted by TestFlight but rejected at App Store submission, so the two
     # are kept equal rather than reconciled later under time pressure.
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "9"
+    CURRENT_PROJECT_VERSION: "10"
 
 targets:
   LitKitchen:
