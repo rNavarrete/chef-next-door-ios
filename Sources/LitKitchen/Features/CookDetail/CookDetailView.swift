@@ -471,7 +471,7 @@ struct CookDetailView: View {
             //
             // Of the two, this was the wrong one — and on the worse screen,
             // since this is where somebody decides whether to drive.
-            Text("\(model.result.neighborhood) · \(model.result.distanceLabel(from: RootView.origin.coordinate))")
+            Text("\(model.result.neighborhood) · \(model.result.travelTime(from: RootView.origin.coordinate).label)")
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkTertiary)
 

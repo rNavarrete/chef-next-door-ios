@@ -328,7 +328,7 @@ private struct LitFollowCard: View {
                 }
 
                 if let price = result.startingPrice {
-                    Text("\(price.display) · \(result.distanceLabel)")
+                    Text("\(price.display) · \(result.travelTime(from: RootView.origin.coordinate).label)")
                         .font(LK.Typography.ui(14, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(LK.Palette.ink)

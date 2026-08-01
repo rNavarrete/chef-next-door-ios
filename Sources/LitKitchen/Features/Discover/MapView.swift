@@ -820,7 +820,7 @@ private struct MapDetailSheet: View {
 
                 // Deliberately vague: the exact address is not ours to show until
                 // the cook confirms a claim.
-                Text("Somewhere in \(result.neighborhood) · \(result.distanceLabel(from: origin))")
+                Text("Somewhere in \(result.neighborhood) · \(result.travelTime(from: origin).label)")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
                 }
@@ -984,7 +984,7 @@ private struct ClusterListSheet: View {
                                     .font(LK.Typography.dishNameRow)
                                     .foregroundStyle(LK.Palette.ink)
                                     .lineLimit(1)
-                                Text("\(result.displayName) · \(result.distanceLabel(from: origin))")
+                                Text("\(result.displayName) · \(result.travelTime(from: origin).label)")
                                     .font(LK.Typography.meta)
                                     .foregroundStyle(LK.Palette.inkTertiary)
                                 if let price = result.startingPrice {
