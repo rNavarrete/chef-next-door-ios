@@ -49,7 +49,7 @@ struct AccountHomeView: View {
                     Text("Cooking for your neighbours?")
                         .font(LK.Typography.bodyEmphasis)
                         .foregroundStyle(LK.Palette.ink)
-                    Text("Set up a kitchen, build a menu, and turn your light on when you're cooking. You'll need a MEHKO permit from your county.")
+                    Text("Set up a kitchen, build a menu, and open up when you're cooking. You'll need a MEHKO permit from your county.")
                         .font(LK.Typography.meta)
                         .foregroundStyle(LK.Palette.inkTertiary)
                         .fixedSize(horizontal: false, vertical: true)

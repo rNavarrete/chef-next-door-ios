@@ -51,10 +51,10 @@ public struct ServingSession: Codable, Sendable, Equatable, Identifiable, Hashab
         case .lit, .dimming:
             return "Cooking · since \(clock)"
         case .unconfirmed:
-            return "Lit at \(clock) · unconfirmed"
+            return "Open since \(clock) · not confirmed recently"
         case .out:
-            guard let closedAt else { return "Light's off" }
-            return "Light went out at \(Self.clockFormatter.string(from: closedAt).lowercased())"
+            guard let closedAt else { return "Closed" }
+            return "Closed at \(Self.clockFormatter.string(from: closedAt).lowercased())"
         }
     }
 

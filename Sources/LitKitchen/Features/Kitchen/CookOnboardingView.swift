@@ -63,7 +63,7 @@ struct CookOnboardingView: View {
             Text("Set up your kitchen")
                 .font(LK.Typography.screenTitle)
                 .foregroundStyle(LK.Palette.ink)
-            Text("Once this is done you can build your menu and turn your light on.")
+            Text("Once this is done you can build your menu and open when you're cooking.")
                 .font(LK.Typography.body)
                 .foregroundStyle(LK.Palette.inkTertiary)
                 .fixedSize(horizontal: false, vertical: true)

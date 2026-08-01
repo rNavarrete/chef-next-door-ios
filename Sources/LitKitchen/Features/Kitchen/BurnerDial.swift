@@ -78,7 +78,7 @@ struct BurnerDial: View {
                     // like a knob, but nothing here responds to a rotation.
                     Text(hasEverOpened
                          ? "Tap when you're\ncooking again"
-                         : "Tap to turn\nyour light on")
+                         : "Tap when you\nstart cooking")
                         .font(LK.Typography.meta)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(LK.Palette.inkTertiary)

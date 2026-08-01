@@ -365,13 +365,13 @@ struct KitchenView: View {
                 Text("You're cooking")
                     .font(LK.Typography.screenTitle)
                     .foregroundStyle(LK.Palette.ink)
-                Text("Neighbours can see your light · tap the dial to close")
+                Text("Neighbours can see you're cooking · tap the dial to close")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
             } else if model.hasEverOpened {
                 // Closing is the most useful thing a cook does here, so the
                 // empty state thanks them for it rather than nagging them back.
-                Text("Your light's off. Thanks for turning it off.")
+                Text("You're closed. Thanks for saying so.")
                     .font(LK.Typography.titleSecondary)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(LK.Palette.ink)
@@ -388,7 +388,7 @@ struct KitchenView: View {
                     .font(LK.Typography.titleSecondary)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(LK.Palette.ink)
-                Text("Add what you make, then tap the dial when you're cooking. Neighbours only see you while your light is on.")
+                Text("Add what you make, then tap the dial when you're cooking. Neighbours only see you while you're open.")
                     .font(LK.Typography.meta)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(LK.Palette.inkTertiary)
@@ -574,7 +574,7 @@ private struct MenuRow: View {
             } label: {
                 // Three states, not two. The badge used to read `isAvailable`
                 // alone, so a closed kitchen showed amber "Cooking" chips
-                // directly under "Your light's off" — the screen contradicting
+                // directly under "You're closed" — the screen contradicting
                 // itself, and amber asserting heat with the burner dark.
                 //
                 // Availability is still a real and separate fact when closed:

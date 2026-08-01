@@ -32,7 +32,7 @@ struct ShareKitchenSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: LK.Metrics.blockSpacing) {
-                    Text("Anyone who scans this opens your kitchen — your menu, whether your light is on, and a way to message you.")
+                    Text("Anyone who scans this opens your kitchen — your menu, whether you're cooking, and a way to message you.")
                         .font(LK.Typography.body)
                         .foregroundStyle(LK.Palette.inkTertiary)
                         .fixedSize(horizontal: false, vertical: true)

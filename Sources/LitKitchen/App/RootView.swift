@@ -48,6 +48,7 @@ struct RootView: View {
     /// one), and a single cheap `head` query answers both without wiring this
     /// view to every screen that could move it.
     @State private var unread = 0
+    @State private var showingWelcome = !OnboardingFlag.welcome.isSet
     @Environment(\.scenePhase) private var rootScenePhase
     /// A thread arrived at from outside the app — today, the Live Activity.
     @State private var deepLink: ThreadLink?
@@ -129,6 +130,16 @@ struct RootView: View {
             }
         }
         .tint(LK.Palette.action)
+        // Full screen rather than a sheet: it is the first thing anyone sees
+        // and a half-height card over a feed they cannot use yet would invite
+        // them to dismiss it by reflex.
+        .fullScreenCover(isPresented: $showingWelcome) {
+            WelcomeView { wantsLocation in
+                OnboardingFlag.welcome.set()
+                showingWelcome = false
+                browsing.welcomeAnswered(wantsLocation: wantsLocation)
+            }
+        }
         .task { await refreshUnread() }
         // Coming back from the background, and leaving a tab — reading a thread
         // is the commonest way this number goes down, and the way back out is a

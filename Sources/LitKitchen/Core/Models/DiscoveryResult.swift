@@ -132,12 +132,12 @@ public struct DiscoveryResult: Codable, Sendable, Identifiable, Hashable {
     /// "since" was meant to point back at the lit time, which the sentence had
     /// already given; dropping it says the same thing and finishes.
     public var availabilityLabel: String {
-        guard let openedAt, let freshness else { return "Light's off" }
+        guard let openedAt, let freshness else { return "Closed" }
         let clock = ServingSession.clockFormatter.string(from: openedAt).lowercased()
         switch freshness {
         case .lit, .dimming: return "Cooking · since \(clock)"
-        case .unconfirmed:   return "Lit at \(clock) · unconfirmed"
-        case .out:           return "Light's off"
+        case .unconfirmed:   return "Open since \(clock) · not confirmed recently"
+        case .out:           return "Closed"
         }
     }
 

@@ -76,7 +76,7 @@ final class MapViewModel {
 /// A street of lit kitchens is the truest picture of what this product is, and
 /// the halo around each one *is* the privacy cell: the published point is
 /// grid-snapped to ~400m, so the glow is drawn at that radius rather than
-/// implying a precise address. "Lights are approximate" says so out loud.
+/// implying a precise address. "Locations are approximate" says so out loud.
 struct MapKitchenView: View {
     @State var model: MapViewModel
     /// Where we're looking. Owned by `RootView`; this screen is the one place
@@ -348,7 +348,7 @@ struct MapKitchenView: View {
                         Image(systemName: browsing.isFollowingDevice ? "location.fill" : "magnifyingglass")
                         Text(browsing.isLocating
                              ? "Finding you…"
-                             : "\(browsing.placeName) · lit right now")
+                             : "\(browsing.placeName) · cooking right now")
                             .font(LK.Typography.bodyEmphasis)
                             .lineLimit(1)
                         Spacer()
@@ -378,7 +378,7 @@ struct MapKitchenView: View {
             }
 
             HStack {
-                Text("Lights are approximate")
+                Text("Locations are approximate")
                     .font(LK.Typography.ui(12, weight: .semibold))
                     .foregroundStyle(LK.Palette.inkQuiet)
                     .padding(.horizontal, 9)
@@ -639,7 +639,7 @@ private struct MapDetailSheet: View {
                 Text(result.isCooking
                      ? "See what \(firstName)'s making"
                      : isFollowed ? "We'll tell you when they're cooking"
-                                  : "Turn their light on for me")
+                                  : "Tell me when they're cooking")
                     .font(LK.Typography.navBarEmphasis)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 48)
@@ -674,7 +674,7 @@ private struct ClusterPin: View {
                 .fill(cluster.isLit ? LK.Palette.heat : LK.Palette.inkTertiary)
                 .frame(width: 9, height: 9)
                 .shadow(color: cluster.isLit ? LK.Palette.heat.opacity(0.9) : .clear, radius: 5)
-            Text(cluster.isLit ? "\(cluster.litCount) lit" : "\(cluster.count)")
+            Text(cluster.isLit ? "\(cluster.litCount) cooking" : "\(cluster.count)")
                 .font(LK.Typography.ui(14, weight: .heavy))
                 .monospacedDigit()
                 .foregroundStyle(LK.Palette.ink)

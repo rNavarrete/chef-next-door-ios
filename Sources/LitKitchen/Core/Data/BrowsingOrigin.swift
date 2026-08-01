@@ -111,7 +111,27 @@ public final class BrowsingOrigin {
     /// Deliberately does nothing when a manual place is set — asking for a
     /// permission whose answer we would then ignore is a prompt spent for
     /// nothing.
+    /// Held shut until the welcome screen has been answered.
+    ///
+    /// `start()` is called from every surface's `.task`, so before this the
+    /// system location dialog appeared on the very first frame of the very
+    /// first launch — cold, before anyone knew what the app was for. The
+    /// welcome screen asks first and opens this only if they say yes.
+    ///
+    /// Not persisted: once `hasSeenWelcome` is set the gate opens on launch, so
+    /// this is only ever closed during the one launch that shows the welcome.
+    private var deferredForWelcome = !OnboardingFlag.welcome.isSet
+
+    /// Called by the welcome screen. `wantsLocation` false leaves the gate shut
+    /// for this launch — the map's own "use my location" control is still there
+    /// and still works.
+    public func welcomeAnswered(wantsLocation: Bool) {
+        deferredForWelcome = false
+        if wantsLocation { start() }
+    }
+
     public func start() {
+        guard !deferredForWelcome else { return }
         guard place == nil, updates == nil else { return }
 
         authorization = manager.authorizationStatus

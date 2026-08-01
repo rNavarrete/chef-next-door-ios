@@ -299,7 +299,7 @@ struct CookDetailView: View {
         .buttonStyle(.plain)
         .padding(.trailing, LK.Metrics.feedGutter)
         .padding(.top, 6)
-        .accessibilityLabel(isFollowed ? "Following" : "Turn their light on for me")
+        .accessibilityLabel(isFollowed ? "Following" : "Tell me when they're cooking")
     }
 
     // MARK: - Content
@@ -423,7 +423,7 @@ struct CookDetailView: View {
     @ViewBuilder
     private var unconfirmedNote: some View {
         if tier == .unconfirmed {
-            Text("\(firstName) turned their light on this morning and hasn't touched the app since. That usually means they're busy — sometimes it means they're done. Ask before you drive.")
+            Text("\(firstName) said they were cooking this morning and hasn't opened the app since. That usually means they're busy — sometimes it means they're done. Ask before you drive.")
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkQuiet)
                 .fixedSize(horizontal: false, vertical: true)
@@ -561,7 +561,7 @@ struct CookDetailView: View {
             } label: {
                 Text(model.result.isCooking
                      ? (isStale ? "Ask if \(firstName) is still cooking" : "Order from \(firstName)")
-                     : "Turn their light on for me")
+                     : "Tell me when they're cooking")
                     .font(LK.Typography.navBarEmphasis)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 52)
