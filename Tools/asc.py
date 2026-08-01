@@ -111,6 +111,28 @@ def cmd_release(version: str, notes: str | None = None):
     print(f"given to the group ({len(members)} testers):",
           ", ".join(t["attributes"]["email"] for t in members))
 
+    # The step that was missing for six builds. Uploading, processing and
+    # attaching testers all succeed without it, and the build appears in
+    # TestFlight with an Install button — which then fails with "Your request
+    # couldn't be completed". Nothing anywhere says the build was never
+    # released; `externalBuildState` sits at READY_FOR_BETA_SUBMISSION and you
+    # have to go looking for it.
+    #
+    # Builds 2 through 7 were all uploaded this way. Testers stayed on build 1.
+    detail = call("GET", f"/v1/builds/{b['id']}/buildBetaDetail")["data"]["attributes"]
+    if detail.get("externalBuildState") == "READY_FOR_BETA_SUBMISSION":
+        try:
+            r = call("POST", "/v1/betaAppReviewSubmissions",
+                     {"data": {"type": "betaAppReviewSubmissions",
+                               "relationships": {"build": {"data": {"type": "builds", "id": b["id"]}}}}})
+            print("submitted for external testing:",
+                  r["data"]["attributes"]["betaReviewState"])
+        except urllib.error.HTTPError:
+            print("!! submission refused — testers will NOT be able to install")
+            raise
+    else:
+        print("external state:", detail.get("externalBuildState"))
+
     if notes:
         for loc in call("GET", f"/v1/builds/{b['id']}/betaBuildLocalizations")["data"]:
             call("PATCH", f"/v1/betaBuildLocalizations/{loc['id']}",
