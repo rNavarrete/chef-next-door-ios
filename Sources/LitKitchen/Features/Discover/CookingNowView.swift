@@ -199,7 +199,7 @@ struct CookingNowView: View {
                         .buttonStyle(.plain)
                 }
                 if !searchModel.dark.isEmpty {
-                    SectionHeader("Dark right now · \(searchModel.dark.count)")
+                    SectionHeader("Closed right now · \(searchModel.dark.count)")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 4)
                 }
@@ -400,11 +400,11 @@ struct CookingNowView: View {
                 // Inflected, not "1 kitchens". Uses the automatic grammar
                 // agreement so it localises rather than hardcoding an English
                 // plural rule.
-                Text("^[\(model.darkCount) kitchen](inflect: true) dark today")
+                Text("^[\(model.darkCount) kitchen](inflect: true) closed today")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
                 Spacer()
-                Button(model.showingClosed ? "Hide dark" : "Look anyway") {
+                Button(model.showingClosed ? "Hide closed" : "Look anyway") {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         model.showingClosed.toggle()
                     }

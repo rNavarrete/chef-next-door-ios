@@ -228,7 +228,7 @@ struct SavedView: View {
             // actually cares about opening this tab is "is anyone on right now".
             Text(model.rows.isEmpty
                  ? "Nobody followed yet"
-                 : "\(model.lit.count) of your \(model.rows.count) are lit")
+                 : "\(model.lit.count) of your \(model.rows.count) are cooking")
                 .font(LK.Typography.screenTitle)
                 .foregroundStyle(LK.Palette.ink)
             Text("Cooks you follow, and whether they're cooking right now.")
@@ -258,7 +258,7 @@ struct SavedView: View {
 
     private var darkSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeader("Dark right now")
+            SectionHeader("Closed right now")
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 

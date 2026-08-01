@@ -392,7 +392,7 @@ struct MapKitchenView: View {
                 Button {
                     model.showClosed.toggle()
                 } label: {
-                    Text(model.showClosed ? "Hide dark" : "Show dark")
+                    Text(model.showClosed ? "Hide closed" : "Show closed")
                         .font(LK.Typography.ui(13.5, weight: .heavy))
                         .foregroundStyle(LK.Palette.ink)
                         .padding(.horizontal, 12)

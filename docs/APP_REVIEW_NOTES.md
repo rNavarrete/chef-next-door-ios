@@ -46,7 +46,7 @@ Email: demo@litkitchen.app
 Password: DEMO_PASSWORD
 
 Signing in with that account and opening the Account tab shows the cook side:
-the burner dial that turns a kitchen's light on and off, the menu builder, the
+the burner dial that opens and closes a kitchen, the menu builder, the
 kitchen's conversations, and a QR code a cook can share with their own buyers.
 
 The Cooking tab also has filters — permitted, still cooking, under 2 miles,
@@ -85,7 +85,7 @@ cook, in the menu at the top right of the Kitchen tab.
 - [ ] Screenshots for 6.9" and 6.5" iPhone. Take them **after** searching 91722
       so the feed is populated — a screenshot of an empty feed invites the same
       rejection as an empty app.
-- [ ] Confirm the demo account still works and the demo kitchen is still lit
+- [ ] Confirm the demo account still works and the demo kitchen is still cooking
       immediately before you submit. Its serving session is real, and the
       cook-side rules close a kitchen that goes quiet for ten hours. If it has
       gone dark, re-run `supabase/seed_review_demo.sql`.

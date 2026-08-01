@@ -50,7 +50,7 @@ Things I'd love you to try:
    Both should just work.
 5. Message a cook. Tap into a kitchen and start a conversation. Then long-press
    it in Messages and delete it.
-6. Follow a kitchen whose light is off, so you'd hear when it comes on.
+6. Follow a kitchen that's closed, so you'd hear when they start cooking.
 7. Set up your own kitchen if you're curious — Account, then Start a kitchen.
    It asks for a permit; choose "I'll sort this out later" unless you want to
    see the check run, in which case enter PR0313409.
@@ -69,7 +69,7 @@ help more than descriptions.
 
 - [ ] Confirm the build number is unique. `CURRENT_PROJECT_VERSION` lives in
       `project.yml`; App Store Connect rejects a repeat.
-- [x] Seeded kitchens stay lit on their own now. `close_quiet_kitchens()` was
+- [x] Seeded kitchens keep cooking on their own now. `close_quiet_kitchens()` was
       shutting 86 of 90 overnight; migration 066 re-confirms the fictional ones
       every four hours. Scoped to seed accounts — verified it modifies zero real
       cook sessions. Remove it before launch, along with the seed itself.
