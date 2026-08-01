@@ -70,10 +70,17 @@ final class CookingNowViewModel {
     /// The place name comes from `browsing`, not a literal. It said "near
     /// Covina" to everyone, including — caught in the simulator — someone who
     /// had just searched Long Beach and was looking at Long Beach results.
+    /// Says how the list is ordered.
+    ///
+    /// Too Good To Go — the closest analogue to this app, surplus food collected
+    /// in a window — sorts by distance and never tells anyone, and design
+    /// critiques of it name that as a specific failure: people cannot tell
+    /// whether the top result is the closest, the cheapest or the newest, so
+    /// they read the whole list to be sure. Three words fix it.
     var subtitleLine: String {
         let place = browsing.placeName
         guard !lit.isEmpty else { return "Nobody's cooking near \(place)" }
-        return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") cooking near \(place)"
+        return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") near \(place) · nearest first"
     }
 }
 
@@ -443,19 +450,43 @@ struct LitKitchenCard: View {
     private var tier: FreshnessTier { result.freshness ?? .out }
     private var isUnconfirmed: Bool { tier == .unconfirmed }
 
+    /// Sized so five cards still fit a screen. A full-bleed hero would be more
+    /// striking and would show two — wrong for a feed whose job is letting you
+    /// compare what is cooking near you right now.
+    ///
+    /// 124 was too greedy in the other direction: the text column got so narrow
+    /// that "Estela R." truncated to "Estela…", because the distance and the
+    /// time are pinned and the name absorbs whatever is left. A nine-character
+    /// name should never clip.
+    private var photoWidth: CGFloat { 106 }
+    private var rowHeight: CGFloat { 104 }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        // The photograph runs to the card's own edge.
+        //
+        // It was an 86pt square inset by 12pt of padding — a thumbnail floating
+        // in a box, taking about a fifth of a card whose entire subject is what
+        // the food looks like. Bleeding it to three edges buys ~40% more image
+        // without making the card taller, and removes the frame-inside-a-frame
+        // that made these read as rows rather than as things worth looking at.
+        HStack(spacing: 0) {
             DishPhoto(
                 urlString: result.headlinePhoto,
-                size: 86,
-                cornerRadius: LK.Metrics.radiusInner,
+                size: photoWidth,
+                height: rowHeight,
+                cornerRadius: 0,
                 isLit: result.isCooking
             )
             // Unconfirmed dims the food rather than hiding it — the kitchen may
             // well still be open, and the card must not assert otherwise.
             .opacity(isUnconfirmed ? 0.7 : 1)
 
-            VStack(alignment: .leading, spacing: 5) {
+            // Name, then price, then the facts.
+            //
+            // The price used to sit last, under the meta line. A buyer scans
+            // dish → cost → how far, so cost was the one thing arriving after
+            // the small grey text instead of before it.
+            VStack(alignment: .leading, spacing: 4) {
                 Text(result.localizedHeadlineItems?.first ?? result.displayName)
                     .font(LK.Typography.dishNameCard)
                     .tracking(-0.475)          // -0.025em at 19pt
@@ -464,18 +495,16 @@ struct LitKitchenCard: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
-                metaLine
                 priceLine
+                metaLine
             }
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(12)
-        .background(LK.Palette.surface, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusCard, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: LK.Metrics.radiusCard, style: .continuous)
-                .strokeBorder(LK.Palette.hairline, lineWidth: LK.Metrics.cardBorderWidth)
-        }
+        .frame(height: rowHeight)
+        .background(LK.Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: LK.Metrics.radiusCard, style: .continuous))
         // No elevation when unconfirmed: a card that may be stale should not
         // sit forward of the ones that are certainly live.
         .modifier(ConditionalCardShadow(enabled: !isUnconfirmed))
