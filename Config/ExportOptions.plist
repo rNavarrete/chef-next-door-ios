@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  How an archive becomes the .ipa that goes to TestFlight.
+
+      xcodebuild -exportArchive \
+        -archivePath <archive> -exportPath <dir> \
+        -exportOptionsPlist Config/ExportOptions.plist \
+        -allowProvisioningUpdates \
+        -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_<ID>.p8 \
+        -authenticationKeyID <ID> -authenticationKeyIssuerID <ISSUER>
+
+  Committed rather than written on demand. It lived in a temp directory for
+  the first six builds and was silently deleted twice between them, which
+  fails the export with "Couldn't load -exportOptionsPlist" after the archive
+  has already taken five minutes.
+
+  `signingStyle: automatic` matters. The archive is signed with the *
+  development* certificate; the distribution certificate and App Store profile
+  are minted at export time by `-allowProvisioningUpdates`. That is why the
+  archive's entitlements read `aps-environment: development` and the exported
+  .ipa reads `production` — checking the archive rather than the .ipa will tell
+  you the push environment is wrong when it is not.
+-->
+<plist version="1.0">
+<dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>teamID</key><string>HCEA5N57HT</string>
+  <key>signingStyle</key><string>automatic</string>
+  <key>uploadSymbols</key><true/>
+  <key>destination</key><string>export</string>
+</dict>
+</plist>
