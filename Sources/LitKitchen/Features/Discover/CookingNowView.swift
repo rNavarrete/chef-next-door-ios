@@ -52,7 +52,7 @@ final class CookingNowViewModel {
     /// The feed counts *lit kitchens*, not listings — "6 lit up", not
     /// "6 dishes available".
     var headline: String {
-        lit.isEmpty ? "Nobody's cooking" : "\(lit.count) lit up"
+        lit.isEmpty ? "Nobody's cooking" : "\(lit.count) cooking now"
     }
 
     var subtitle: String {
@@ -72,8 +72,8 @@ final class CookingNowViewModel {
     /// had just searched Long Beach and was looking at Long Beach results.
     var subtitleLine: String {
         let place = browsing.placeName
-        guard !lit.isEmpty else { return "No kitchens lit near \(place)" }
-        return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") lit near \(place)"
+        guard !lit.isEmpty else { return "Nobody's cooking near \(place)" }
+        return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") cooking near \(place)"
     }
 }
 
@@ -90,6 +90,7 @@ struct CookingNowView: View {
     @FocusState private var searchFocused: Bool
     /// Narrows what is shown, never what is fetched.
     @State private var filters: Set<FeedFilter> = []
+    @State private var showingPlaceSearch = false
 
     private var hasQuery: Bool {
         !searchModel.query.trimmingCharacters(in: .whitespaces).isEmpty
@@ -304,6 +305,9 @@ struct CookingNowView: View {
         }
         // Keyed on the origin: picking a ZIP on the map has to move the
         // feed too, or the two tabs describe different cities.
+        .sheet(isPresented: $showingPlaceSearch) {
+            PlaceSearchSheet(browsing: browsing)
+        }
         .task(id: browsing.coordinate) {
             browsing.start()
             await model.load()
@@ -331,15 +335,39 @@ struct CookingNowView: View {
         .padding(.bottom, 2)
     }
 
+    /// The moment the app has nothing to show is exactly when "look somewhere
+    /// else" is worth knowing — which makes this the trigger, rather than a
+    /// tip fired on first launch at somebody who has not hit the problem yet.
+    /// It was a dead end before: a statement of fact with nothing to do about
+    /// it, on the screen that opens the app.
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Text("No kitchens are lit right now.")
+        VStack(spacing: 10) {
+            Text("Nobody's cooking near you right now.")
                 .font(LK.Typography.body)
                 .foregroundStyle(LK.Palette.inkQuiet)
-            Text("Follow a cook and we'll push you the moment one lights up.")
+                .multilineTextAlignment(.center)
+            Text("Most cooks are in the San Gabriel Valley today. Try another neighbourhood, or follow a cook and we'll tell you when they start.")
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkTertiary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12)
+
+            Button {
+                showingPlaceSearch = true
+            } label: {
+                Text("Search another area")
+                    .font(LK.Typography.navBarEmphasis)
+                    .foregroundStyle(LK.Palette.action)
+                    .padding(.horizontal, 22)
+                    .frame(minHeight: 48)
+                    .background(
+                        RoundedRectangle(cornerRadius: LK.Metrics.radiusButton, style: .continuous)
+                            .strokeBorder(LK.Palette.action.opacity(0.35), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
         .padding(.vertical, 40)
     }
