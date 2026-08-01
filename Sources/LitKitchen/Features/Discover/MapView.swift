@@ -196,9 +196,58 @@ struct MapKitchenView: View {
         }
     }
 
-    private var clusters: [MapCluster] {
-        MapClustering.cluster(model.visible, span: span)
+    /// What the map is actually drawing right now.
+    ///
+    /// Held in state rather than computed in `body`. As a computed property
+    /// this re-clustered every single render — bucketing every result into a
+    /// dictionary keyed by an interpolated string, sorting each bucket, then
+    /// sorting the whole map — and `body` re-runs on every camera publication.
+    /// The work was proportional to results × frames, which is exactly the
+    /// shape that falls apart when the kitchen count grows.
+    ///
+    /// Now it is proportional to results × *meaningful changes*: a new load, a
+    /// zoom that crossed the throttle band, or the closed toggle.
+    @State private var clusters: [MapCluster] = []
+    /// The last region we culled against, padded. Nil until the first camera
+    /// publication, which is why `rebuild` treats nil as "draw everything".
+    @State private var cullRegion: MKCoordinateRegion?
+
+    /// Recompute clusters and drop anything off screen.
+    ///
+    /// Culling matters more than clustering. The loader pulls a radius sized to
+    /// the viewport plus 15%, but after a zoom *out* the results from the
+    /// previous, wider query are all still in `results` — so the map was
+    /// handing MapKit annotations for kitchens hundreds of miles away, every
+    /// one of them a full custom `MapPin` with a photograph in it. Apple's
+    /// guidance for this is blunt: only render what is in the current region.
+    ///
+    /// Padded to 1.6× the viewport so a pin just past the edge is already on
+    /// screen when a drag reaches it, rather than popping in.
+    private func rebuild() {
+        let built = MapClustering.cluster(model.visible, span: span)
+        guard let region = cullRegion else {
+            clusters = built
+            return
+        }
+        let padLat = region.span.latitudeDelta * 0.8
+        let padLon = region.span.longitudeDelta * 0.8
+        clusters = built.filter { cluster in
+            abs(cluster.coordinate.latitude - region.center.latitude) <= padLat
+                && abs(cluster.coordinate.longitude - region.center.longitude) <= padLon
+        }
     }
+
+    /// Halos are the privacy disclosure — the published point is snapped to a
+    /// ~400m cell and the circle is that cell — so they are never dropped for
+    /// speed alone. They are dropped when they cannot be *read*.
+    ///
+    /// Zoomed out past a city the cell is sub-pixel: seventy translucent
+    /// overlays that render as nothing. MapKit re-evaluates every overlay on
+    /// every change and transparency forces it to redisplay more than once, so
+    /// they were among the most expensive things on screen while being
+    /// literally invisible. "Locations are approximate" carries the claim at
+    /// that zoom; the circles carry it once they are big enough to see.
+    private var showHalos: Bool { span < 0.35 }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -312,8 +361,11 @@ struct MapKitchenView: View {
     private var map: some View {
         Map(position: $camera) {
             // Halos stay per-kitchen even inside a cluster: each one is a real
-            // privacy cell, and merging them would misrepresent the area.
-            ForEach(model.visible) { result in
+            // privacy cell, and merging them would misrepresent the area. But
+            // only for kitchens that survived the cull, and only at a zoom
+            // where the cell is bigger than a pixel — this used to iterate
+            // every loaded result regardless of either.
+            ForEach(showHalos ? clusters.flatMap(\.members) : []) { result in
                 MapCircle(
                     center: result.coordinate.clLocationCoordinate,
                     radius: DiscoveryResult.fuzzRadiusM
@@ -376,8 +428,33 @@ struct MapKitchenView: View {
             // price until they were tapped. 3% keeps the thresholds honest and
             // still removes ~95% of the recomputes.
             let latest = context.region.span.latitudeDelta
-            if latest < span * 0.97 || latest > span * 1.03 { span = latest }
+            let region = context.region
+
+            // Zoom changed enough to re-cluster and re-check the thresholds.
+            if latest < span * 0.97 || latest > span * 1.03 {
+                span = latest
+                cullRegion = region
+                rebuild()
+                return
+            }
+
+            // Panned far enough that the cull is stale. Compared against the
+            // *padded* margin, so this fires roughly once per screen of travel
+            // rather than once per frame — without it, culling would strand
+            // pins at the edge of a long drag until the pan-end reload landed.
+            if let culled = cullRegion {
+                let movedLat = abs(region.center.latitude - culled.center.latitude)
+                let movedLon = abs(region.center.longitude - culled.center.longitude)
+                guard movedLat > culled.span.latitudeDelta * 0.4
+                        || movedLon > culled.span.longitudeDelta * 0.4
+                else { return }
+            }
+            cullRegion = region
+            rebuild()
         }
+        // The results themselves changed, or the closed toggle did.
+        .onChange(of: model.results) { rebuild() }
+        .onChange(of: model.showClosed) { rebuild() }
         // Muted, so the photos are the only saturated thing on screen.
         //
         // Basemap guidance for map-first UI is consistent about this: keep the

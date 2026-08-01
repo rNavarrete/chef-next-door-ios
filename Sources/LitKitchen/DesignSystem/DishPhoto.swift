@@ -28,6 +28,23 @@ struct DishPhoto: View {
     @State private var loaded: UIImage?
     @State private var failed = false
 
+    /// What we actually ask the network for: this view's own frame, in pixels.
+    ///
+    /// Derived here rather than at each call site so no surface can forget. The
+    /// map pin, the feed row and the menu thumbnail all draw wildly different
+    /// sizes and were all fetching the same full-resolution original.
+    ///
+    /// Capped at 3× because that is the densest screen shipping, and rounded up
+    /// to a step so that a 106pt and a 112pt frame share one cache entry and
+    /// one download instead of two near-identical ones.
+    private var requestURL: String? {
+        let scale = min(UIScreen.main.scale, 3)
+        let step = 32.0
+        let w = Int((size * scale / step).rounded(.up) * step)
+        let h = Int(((height ?? size) * scale / step).rounded(.up) * step)
+        return StorageImage.thumbnail(urlString, width: w, height: h)
+    }
+
     var body: some View {
         Group {
             if let loaded {
@@ -42,13 +59,20 @@ struct DishPhoto: View {
                 placeholder.overlay { ProgressView().scaleEffect(0.7) }
             }
         }
-        .task(id: urlString) {
-            guard let urlString else { return }
-            if let hit = DishImageCache.cached(urlString) {
+        // Keyed on the sized URL, not the raw one: two views drawing the same
+        // photo at different sizes are two different requests, and keying on
+        // the original would have them overwrite each other's work.
+        .task(id: requestURL) {
+            guard let requestURL else { return }
+            if let hit = DishImageCache.cached(requestURL) {
                 loaded = hit
                 return
             }
-            let image = await DishImageCache.load(urlString)
+            let image = await DishImageCache.load(
+                requestURL,
+                // The backstop for anything Storage did not resize for us.
+                maxPixel: max(size, height ?? size) * min(UIScreen.main.scale, 3)
+            )
             // Only animate a genuine load. Cache hits above return before this
             // and appear instantly, which is the whole point.
             withAnimation(.easeOut(duration: 0.18)) {

@@ -64,6 +64,8 @@ public final class BrowsingOrigin {
     /// `start()` is called from every surface's `.task`, and without this a tab
     /// switch would open a second stream.
     private var updates: Task<Void, Never>?
+    /// Stops `isLocating` spinning forever when no fix ever arrives.
+    private var watchdog: Task<Void, Never>?
     private let defaults: UserDefaults
     private static let placeKey = "litkitchen.browsingPlace"
 
@@ -212,6 +214,23 @@ public final class BrowsingOrigin {
         // the press, and "already know where you are" is not visible feedback.
         isLocating = canUseDeviceLocation
         start()
+
+        // A fix is not guaranteed to arrive. `CLLocationUpdate.liveUpdates`
+        // simply yields nothing indoors, on a simulator with no location set,
+        // or while the first fix is still being acquired — and `isLocating`
+        // only ever gets cleared by an update that lands. The map's control
+        // disables itself while locating, so without this the button spins
+        // forever and cannot be pressed again. Seen in the simulator.
+        //
+        // Ten seconds is past the point where a fix is coming. The spinner
+        // stops, the button becomes pressable, and the origin is unchanged —
+        // whatever it was before is still the best answer we have.
+        watchdog?.cancel()
+        watchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            guard let self, !Task.isCancelled else { return }
+            self.isLocating = false
+        }
     }
 
     /// Drop the manual choice and go back to following the device.
@@ -237,6 +256,8 @@ public final class BrowsingOrigin {
     /// Turn a fix into a named place and adopt it as the origin.
     private func adopt(_ location: CLLocation) async {
         let name = await Self.name(for: location)
+        watchdog?.cancel()
+        watchdog = nil
         deviceFix = ResolvedPlace(
             name: name,
             coordinate: Coordinate(
