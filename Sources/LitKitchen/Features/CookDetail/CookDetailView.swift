@@ -391,7 +391,19 @@ struct CookDetailView: View {
         // The Polaroid tell. Nothing else about the shape says instant film;
         // the deep lower margin does all of it.
         .padding(.bottom, 22)
-        .background(LK.Palette.printPaper)
+        // `in: Rectangle()` is load-bearing — do not simplify it away.
+        //
+        // A bare `.background(style)` adopts the enclosing container's shape,
+        // and the container here is the content card, an
+        // `UnevenRoundedRectangle` with 24pt top corners. The frame was
+        // inheriting exactly that: rounded across the top, square along the
+        // bottom. A Polaroid with rounded corners is not a Polaroid, and the
+        // stroke below stayed square the whole time, so the cream sat inside a
+        // hairline that no longer traced it.
+        //
+        // Invisible until the frame moved onto the hero — against flat ground
+        // the rounding read as nothing; against a photograph it read as a bug.
+        .background(LK.Palette.printPaper, in: Rectangle())
         .overlay {
             // A hairline so the white frame does not dissolve into a light
             // ground. On night blue it needs no help.
