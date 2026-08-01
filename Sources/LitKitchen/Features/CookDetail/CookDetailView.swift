@@ -225,8 +225,24 @@ struct CookDetailView: View {
     /// `model.cook` loads after `model.result`, so this starts on the dish photo
     /// and swaps when the profile arrives. `DishPhoto` cross-fades, and the
     /// cached image means a revisit is instant.
+    /// Today's food while they are cooking; the kitchen's own photo otherwise.
+    ///
+    /// The cover won unconditionally, so the largest image on the page could
+    /// show something nobody could buy — Mateos' hero is a bowl of mashed
+    /// potato and the only dish on today is sushi. Product-card guidance is
+    /// consistent that the most important content goes highest and largest, and
+    /// on a page whose whole job is "should I get food from this person
+    /// tonight", the most important content is tonight's food.
+    ///
+    /// The cover is not discarded, it is re-scoped: it is the kitchen's
+    /// identity, which is exactly what you want to see when there is no
+    /// "today" to show. A closed kitchen still gets the photograph the cook
+    /// chose to represent themselves.
     private var heroPhoto: String? {
-        model.cook?.coverURL ?? model.result.headlinePhoto
+        if model.result.isCooking, let dish = model.result.headlinePhoto {
+            return dish
+        }
+        return model.cook?.coverURL ?? model.result.headlinePhoto
     }
 
     private var hero: some View {
@@ -385,7 +401,19 @@ struct CookDetailView: View {
         // Off-square, and tilted *away* from the name so the gap between them
         // opens rather than pinches.
         .rotationEffect(.degrees(3.5))
-        .padding(.top, 6)
+        // Taped over the seam where the hero meets the card, rather than
+        // sitting inside the card below it.
+        //
+        // The frame is about 130pt tall and the three lines beside it are
+        // about 90, so the Polaroid was setting the height of the row and
+        // every kitchen without a story got 40pt of blank card between its
+        // address and its menu. Mateos' page opened on a visible hole.
+        //
+        // The offset lifts it; the matching negative padding stops it claiming
+        // the height it no longer occupies, which is what actually closes the
+        // gap — offset alone moves the picture and leaves the space behind.
+        .offset(y: -52)
+        .padding(.bottom, -52)
         // The tilt would otherwise let a corner overhang the screen edge.
         .padding(.trailing, 4)
         .accessibilityHidden(true)
