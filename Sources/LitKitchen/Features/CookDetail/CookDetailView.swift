@@ -39,6 +39,7 @@ struct CookDetailView: View {
     @State private var isFollowed = false
     @State private var showingReport = false
     @State private var showingThread = false
+    @State private var askingPush = false
     @State private var showingVerifiedInfo = false
     @State private var isBlocked = false
     @State private var showingBlockConfirm = false
@@ -86,6 +87,13 @@ struct CookDetailView: View {
                 // Nil when there's no backend: the dish still reads, it just
                 // can't be ordered, which is the honest state.
                 onOrder: RootView.messageRepository == nil ? nil : { showingThread = true }
+            )
+        }
+        .sheet(isPresented: $askingPush) {
+            PushSoftAsk(
+                title: "We'll tell you when \(firstName) starts cooking",
+                message: "That's what following is for. Without notifications we've no way to reach you.",
+                onDecided: { OnboardingFlag.pushBuyer.set() }
             )
         }
         .sheet(isPresented: $showingThread) {
@@ -271,8 +279,15 @@ struct CookDetailView: View {
     private var followButton: some View {
         Button {
             Task {
-                try? await RootView.follows.setFollowing(!isFollowed, cookID: model.result.cookID)
+                let nowFollowing = !isFollowed
+                try? await RootView.follows.setFollowing(nowFollowing, cookID: model.result.cookID)
                 isFollowed.toggle()
+                // Following *is* a request to be told. Asking here rather than
+                // on launch means the sentence explaining why is the thing they
+                // just did.
+                if nowFollowing, await OnboardingFlag.shouldAsk(.pushBuyer) {
+                    askingPush = true
+                }
             }
         } label: {
             Image(systemName: isFollowed ? "heart.fill" : "heart")

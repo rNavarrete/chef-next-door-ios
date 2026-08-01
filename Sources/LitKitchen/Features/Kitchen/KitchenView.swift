@@ -144,6 +144,7 @@ struct KitchenView: View {
     /// Non-nil while confirming a deletion.
     @State private var deletingItem: MenuItem?
     @State private var showingShare = false
+    @State private var askingPush = false
 
     var body: some View {
         ScrollView {
@@ -202,6 +203,13 @@ struct KitchenView: View {
         .sheet(isPresented: $showingShare) {
             ShareKitchenSheet(cookID: model.cookID, displayName: model.shareName)
                 .presentationDetents([.large])
+        }
+        .sheet(isPresented: $askingPush) {
+            PushSoftAsk(
+                title: "You're open. Want to know when someone writes?",
+                message: "You've just told your neighbours you're cooking. We can tell you the moment somebody messages — otherwise you'll need to keep checking.",
+                onDecided: { OnboardingFlag.pushCook.set() }
+            )
         }
         .sheet(isPresented: $showingStory) {
             CookStorySheet(cookID: model.cookID, story: model.story) { saved in
@@ -338,6 +346,15 @@ struct KitchenView: View {
                             await askAboutOpenOrders()
                         } else {
                             await model.openKitchen()
+                            // The value moment: they have just told the
+                            // neighbourhood they are cooking, so a message is
+                            // now something they are waiting for. Before this,
+                            // a cook who opened up and waited was never asked
+                            // at all — permission was requested only when
+                            // *sending* a message, which a cook does second.
+                            if model.isOpen, await OnboardingFlag.shouldAsk(.pushCook) {
+                                askingPush = true
+                            }
                         }
                     }
                 }
