@@ -92,17 +92,65 @@ extension Set where Element == FeedFilter {
 /// the screen.
 struct FeedFilterBar: View {
     @Binding var active: Set<FeedFilter>
-    /// How many kitchens each filter would leave. The number is no longer
-    /// drawn — it disables the chip instead, so a control that would empty the
-    /// feed cannot be tapped, without spending a digit on every chip to say so.
-    var counts: (FeedFilter) -> Int
+    /// The unfiltered list. The bar counts against it directly rather than
+    /// taking a closure, because the counts have to know what else is selected
+    /// and only this view knows that.
+    var results: [DiscoveryResult]
+
+    /// What tapping this chip would actually leave you with.
+    ///
+    /// Measured against the *current selection*, not against the whole list.
+    /// Independently each chip looked available — "Trays" read as tappable
+    /// while "Cooking now" and "Under 10 min" were already on, and tapping it
+    /// emptied a feed of sixty-four. A count that ignores the other chips is
+    /// answering a question nobody asked.
+    ///
+    /// The union covers both states with one formula: for a chip that is
+    /// already on, `active ∪ {filter}` is just `active`, so the number it shows
+    /// is the count you are currently looking at.
+    private func count(for filter: FeedFilter) -> Int {
+        active.union([filter]).apply(to: results).count
+    }
+
+    /// A chip that would change nothing is not offered.
+    ///
+    /// "Cooking now" matches `lit`, and when every kitchen nearby is lit it is
+    /// a control that visibly does something and measurably does not. Limited
+    /// to the no-selection case on purpose: hiding chips *as you select* would
+    /// make the row shuffle under your thumb, which is worse than an
+    /// occasionally redundant chip.
+    private func isNoOp(_ filter: FeedFilter) -> Bool {
+        active.isEmpty && count(for: filter) == results.count
+    }
+
+    private var shown: [FeedFilter] {
+        FeedFilter.allCases.filter { active.contains($0) || !isNoOp($0) }
+    }
 
     var body: some View {
+        HStack(spacing: 8) {
+            chips
+            // Outside the scroll view, so the way out of a filter is never the
+            // thing you have to scroll to find. It sat after the fifth chip,
+            // off the right edge — reachable only by swiping the row, at the
+            // exact moment the feed had just emptied and the reason was not
+            // visible either. Costs no width when nothing is selected.
+            if !active.isEmpty {
+                Button("Clear") { active.removeAll() }
+                    .font(LK.Typography.ui(14, weight: .semibold))
+                    .foregroundStyle(LK.Palette.action)
+                    .buttonStyle(.plain)
+                    .padding(.trailing, LK.Metrics.feedGutter)
+            }
+        }
+    }
+
+    private var chips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(FeedFilter.allCases) { filter in
+                ForEach(shown) { filter in
                     let on = active.contains(filter)
-                    let n = counts(filter)
+                    let n = count(for: filter)
                     Button {
                         if on { active.remove(filter) } else { active.insert(filter) }
                     } label: {
@@ -128,17 +176,13 @@ struct FeedFilterBar: View {
                     .disabled(n == 0 && !on)
                     .opacity(n == 0 && !on ? 0.4 : 1)
                 }
-
-                if !active.isEmpty {
-                    Button("Clear") { active.removeAll() }
-                        .font(LK.Typography.ui(14, weight: .medium))
-                        .foregroundStyle(LK.Palette.action)
-                        .padding(.horizontal, 4)
-                        .buttonStyle(.plain)
-                }
             }
-            .padding(.horizontal, LK.Metrics.feedGutter)
+            .padding(.leading, LK.Metrics.feedGutter)
+            .padding(.trailing, 8)
         }
-        .scrollClipDisabled()
+        // Clipped, deliberately. It was `.scrollClipDisabled()` — needed when
+        // the chips were capsules with shadows, harmless while the row owned
+        // the full width, and wrong the moment "Clear" moved out beside it:
+        // the last chip drew straight through the button.
     }
 }

@@ -309,10 +309,8 @@ struct CookingNowView: View {
                 header
                 searchField
                 if !model.lit.isEmpty {
-                    FeedFilterBar(active: $filters) { filter in
-                        model.lit.filter(filter.accepts).count
-                    }
-                    .padding(.bottom, 14)
+                    FeedFilterBar(active: $filters, results: model.lit)
+                        .padding(.bottom, 14)
                 }
                 if !model.lit.isEmpty, !filters.apply(to: model.lit).isEmpty {
                     stoveHeader
@@ -393,7 +391,7 @@ struct CookingNowView: View {
             // place name and the sort order — and a buyer reads none of them
             // before the first dish. What survives is the one that changes a
             // decision: how many are actually near.
-            if let reach = model.reachLabel {
+            if let reach = headerCount {
                 Text(reach)
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
@@ -403,6 +401,25 @@ struct CookingNowView: View {
         .padding(.horizontal, LK.Metrics.feedGutter)
         .padding(.top, 6)
         .padding(.bottom, 12)
+    }
+
+    /// The number beside the title, describing the rows actually below it.
+    ///
+    /// It always read "N within 15 min", which is a fact about reach rather
+    /// than about the list — so with two chips on it could say "1 within 15
+    /// min" directly above an empty-state reading "64 kitchens are cooking
+    /// nearby". Two counts, two different universes, one screen.
+    ///
+    /// Unfiltered, reach is still the more useful of the two: the list is
+    /// everything cooking, and how much of it is close is the thing you cannot
+    /// see from the top of a scroll. Filtered, the honest number is how much
+    /// survived, against the total the empty state also quotes.
+    private var headerCount: String? {
+        guard !model.lit.isEmpty else { return nil }
+        guard filters.isEmpty else {
+            return "\(filters.apply(to: model.lit).count) of \(model.lit.count)"
+        }
+        return model.reachLabel
     }
 
     /// Says what the list is and how it is ordered.
