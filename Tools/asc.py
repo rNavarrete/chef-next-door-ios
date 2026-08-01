@@ -32,6 +32,14 @@ import jwt
 KEY_ID = "YJRRK6UG6G"
 ISSUER = "516f516d-e06d-4cdb-95b4-d8b13c741629"
 APP_ID = "6795673262"
+# "Friends and family". Testers belong to the group, not to a build — adding
+# somebody once is permanent, and a release only has to hand the build over.
+#
+# Apple has an attribute for true auto-distribution, `hasAccessToAllBuilds`,
+# but it is create-only and applies to *internal* groups (App Store Connect
+# users). These testers are external email invitees, so every build still has
+# to be handed to the group explicitly. That is the one call below.
+GROUP_ID = "7527a524-723e-4274-b46c-f678d49459f4"
 KEY_PATH = os.path.expanduser(f"~/.appstoreconnect/private_keys/AuthKey_{KEY_ID}.p8")
 BASE = "https://api.appstoreconnect.apple.com"
 
@@ -97,10 +105,11 @@ def cmd_wait(version: str, timeout_s: int = 900):
 
 def cmd_release(version: str, notes: str | None = None):
     b = cmd_wait(version)
-    testers = call("GET", "/v1/betaTesters?limit=50")["data"]
-    call("POST", f"/v1/builds/{b['id']}/relationships/individualTesters",
-         {"data": [{"type": "betaTesters", "id": t["id"]} for t in testers]})
-    print("attached:", ", ".join(t["attributes"]["email"] for t in testers))
+    call("POST", f"/v1/betaGroups/{GROUP_ID}/relationships/builds",
+         {"data": [{"type": "builds", "id": b["id"]}]})
+    members = call("GET", f"/v1/betaGroups/{GROUP_ID}/betaTesters")["data"]
+    print(f"given to the group ({len(members)} testers):",
+          ", ".join(t["attributes"]["email"] for t in members))
 
     if notes:
         for loc in call("GET", f"/v1/builds/{b['id']}/betaBuildLocalizations")["data"]:
