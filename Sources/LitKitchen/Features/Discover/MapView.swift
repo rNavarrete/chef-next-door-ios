@@ -130,9 +130,9 @@ struct MapKitchenView: View {
     /// without flooding the streets underneath.
     private var haloFill: Double {
         switch span {
-        case ..<0.012: 0.07     // inside the cell; the ring does the work
-        case ..<0.030: 0.20
-        default:       0.34     // neighbourhood view: a warm pool of light
+        case ..<0.012: 0.05     // inside the cell; the ring does the work
+        case ..<0.030: 0.13
+        default:       0.22     // enough to read as an area, not a spotlight
         }
     }
 
@@ -266,7 +266,8 @@ struct MapKitchenView: View {
                         MapPin(
                             result: single,
                             isSelected: model.selected?.id == single.id,
-                            showsPricePill: showPills || model.selected?.id == single.id
+                            showsPricePill: showPills || model.selected?.id == single.id,
+                            showsCookingGlow: model.showClosed
                         )
                         .onTapGesture {
                             // Raises the sheet in place. Tapping a pin must
@@ -306,7 +307,19 @@ struct MapKitchenView: View {
             let latest = context.region.span.latitudeDelta
             if latest < span * 0.97 || latest > span * 1.03 { span = latest }
         }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        // Muted, so the photos are the only saturated thing on screen.
+        //
+        // Basemap guidance for map-first UI is consistent about this: keep the
+        // base tonal and low-contrast so the data layer becomes the focus by
+        // sheer contrast differential. Apple's default is not that — park green
+        // and freeway beige are strong colours, and they were competing with
+        // the one element that actually matters here, which is a photograph of
+        // somebody's food.
+        //
+        // `emphasis: .muted` flattens the difference between street types and
+        // buildings. POIs were already excluded: a map of restaurants is a poor
+        // backdrop for a map of home kitchens.
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
         // Still pinned to light, and now *only* pinned — the warm multiply
         // wash that used to sit on top is gone.
@@ -415,6 +428,8 @@ private struct MapPin: View {
     let result: DiscoveryResult
     let isSelected: Bool
     var showsPricePill: Bool = true
+    /// True only while closed kitchens share the map. See the glow below.
+    var showsCookingGlow: Bool = false
 
     private var tier: FreshnessTier { result.freshness ?? .out }
 
@@ -444,9 +459,15 @@ private struct MapPin: View {
             }
 
             ZStack {
-                // The lamp glow, kept behind the marker so a lit kitchen reads
-                // warm from across the map before you can make out the food.
-                if result.isCooking {
+                // Only when closed kitchens are on screen too.
+                //
+                // This was "the lamp glow" — the lit metaphor, drawn. With
+                // `Show closed` off, which is the default, every pin on the map
+                // is already cooking, so a glow meaning "this one is cooking"
+                // separated nothing and was simply the loudest thing on screen.
+                // Hierarchy has to be earned: the distinction appears exactly
+                // when there is a distinction to make.
+                if result.isCooking, showsCookingGlow {
                     Circle()
                         .fill(LK.Palette.heat.opacity(tier == .lit ? 0.55 : 0.3))
                         .frame(width: diameter + 26, height: diameter + 26)
@@ -668,31 +689,55 @@ private struct MapDetailSheet: View {
 private struct ClusterPin: View {
     let cluster: MapCluster
 
+    /// Built from the same parts as `MapPin`: cream disc, soft shadow, stem.
+    ///
+    /// It was a capsule with an amber ring and a glowing dot — which read as a
+    /// floating legend rather than somewhere you could go, and pointed at
+    /// nothing. Once the per-pin glow came off, it was also the only saturated
+    /// thing left on the map, so the least informative marker had become the
+    /// loudest.
+    ///
+    /// Now a cluster and a single kitchen are obviously the same kind of
+    /// object: one shows a photograph, the other shows how many photographs it
+    /// is standing in front of.
+    private var diameter: CGFloat { 46 }
+
     var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(cluster.isLit ? LK.Palette.heat : LK.Palette.inkTertiary)
-                .frame(width: 9, height: 9)
-                .shadow(color: cluster.isLit ? LK.Palette.heat.opacity(0.9) : .clear, radius: 5)
-            Text(cluster.isLit ? "\(cluster.litCount) cooking" : "\(cluster.count)")
-                .font(LK.Typography.ui(14, weight: .heavy))
-                .monospacedDigit()
-                .foregroundStyle(LK.Palette.ink)
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(LK.Palette.surface)
+                    .frame(width: diameter + 9, height: diameter + 9)
+                    .shadow(color: LK.Palette.ink.opacity(0.28), radius: 5, y: 3)
+
+                VStack(spacing: -2) {
+                    Text("\(cluster.isLit ? cluster.litCount : cluster.count)")
+                        .font(LK.Typography.ui(19, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(LK.Palette.ink)
+                    // The unit, so a bare number is never ambiguous about what
+                    // it counts. "cooking" spelled out costs a line but stops
+                    // the marker meaning "2 somethings".
+                    Text(cluster.isLit ? "cooking" : "closed")
+                        .font(LK.Typography.ui(9.5, weight: .semibold))
+                        .foregroundStyle(LK.Palette.inkTertiary)
+                }
+
+                // A thin amber ring rather than a thick one: enough to say
+                // these are open, quiet enough not to outrank the food.
+                if cluster.isLit {
+                    Circle()
+                        .strokeBorder(LK.Palette.heat, lineWidth: 2)
+                        .frame(width: diameter + 9, height: diameter + 9)
+                }
+            }
+
+            Triangle()
+                .fill(LK.Palette.surface)
+                .frame(width: 11, height: 7)
+                .shadow(color: LK.Palette.ink.opacity(0.22), radius: 2, y: 2)
+                .offset(y: -1)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        // Solid cream, not `.ultraThinMaterial`. The glass capsule was built
-        // for the dusk map and worked because it sat on near-black; on a
-        // daylight map it picks up whatever is behind it and the count stops
-        // being legible over park green.
-        .background(LK.Palette.surface, in: Capsule())
-        .overlay {
-            Capsule().strokeBorder(
-                cluster.isLit ? LK.Palette.heat : LK.Palette.hairline,
-                lineWidth: 2
-            )
-        }
-        .shadow(color: LK.Palette.ink.opacity(0.28), radius: 5, y: 3)
         .accessibilityElement()
         .accessibilityLabel(
             cluster.isLit
