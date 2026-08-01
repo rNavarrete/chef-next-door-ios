@@ -406,7 +406,17 @@ struct CookDetailView: View {
                 }
             }
 
-            Text("\(model.result.neighborhood) · \(model.result.distanceLabel)")
+            // Measured from the browsing origin, not from `distanceM`.
+            //
+            // A result reached from the map carries a distance the server
+            // measured from the *map's centre*, because that is what the map
+            // queried around. `MapView` already knows this and renders
+            // `distanceLabel(from:)`; this screen did not, so the same kitchen
+            // read 8.1 mi on the map sheet and 6.4 mi here, one tap apart.
+            //
+            // Of the two, this was the wrong one — and on the worse screen,
+            // since this is where somebody decides whether to drive.
+            Text("\(model.result.neighborhood) · \(model.result.distanceLabel(from: RootView.origin.coordinate))")
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkTertiary)
 
