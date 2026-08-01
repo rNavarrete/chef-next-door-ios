@@ -17,6 +17,10 @@ struct DishPhoto: View {
     var height: CGFloat?
     var cornerRadius: CGFloat = LK.Metrics.radiusInner
     var isLit: Bool = true
+    /// What to draw when there is no photograph. Pass the dish name; the first
+    /// character becomes a letterform. Nil keeps the old fork-and-knife, which
+    /// is still right anywhere there is no name to draw from.
+    var monogramSource: String?
 
     /// Seeded from the cache so a photo already in memory renders on the very
     /// first frame — no placeholder, no fade. This is what stops map pins
@@ -62,12 +66,59 @@ struct DishPhoto: View {
         .accessibilityHidden(true)   // the row's text carries the meaning
     }
 
+    @ViewBuilder
     private var placeholder: some View {
-        LK.Palette.chip
+        if let letter = monogramLetter {
+            monogram(letter)
+        } else {
+            LK.Palette.chip
+                .overlay {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: size * 0.22, weight: .light))
+                        .foregroundStyle(LK.Palette.inkTertiary.opacity(0.45))
+                }
+        }
+    }
+
+    /// First letter of the dish, uppercased. Nil for a name that starts with
+    /// something that would not read as a letterform — an emoji, a digit, a
+    /// stray bullet — which falls back to the fork and knife rather than
+    /// setting a 32pt "7".
+    private var monogramLetter: String? {
+        guard let first = monogramSource?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .first,
+            first.isLetter
+        else { return nil }
+        return String(first).uppercased()
+    }
+
+    /// A letter standing in for a photograph, misregistered like cheap colour
+    /// printing.
+    ///
+    /// A grid of identical grey fork-and-knife tiles is the worst thing on a
+    /// feed whose subject is what the food looks like — it makes every cook
+    /// without a photo look like the same broken row. A letterform is at least
+    /// *this dish*, and the offset plates make the tile look printed rather
+    /// than merely empty.
+    ///
+    /// Ink last and centred, so the letter stays legible at 4.5:1 and the
+    /// colour reads as fringing around it rather than as the letter itself.
+    private func monogram(_ letter: String) -> some View {
+        let plate = size * 0.022      // scales with the tile; ~1.2pt at 56
+        return LK.Palette.printPaper
             .overlay {
-                Image(systemName: "fork.knife")
-                    .font(.system(size: size * 0.22, weight: .light))
-                    .foregroundStyle(LK.Palette.inkTertiary.opacity(0.45))
+                ZStack {
+                    Text(letter)
+                        .foregroundStyle(Color(hex: 0xE0218A).opacity(0.85))
+                        .offset(x: -plate, y: -plate)
+                    Text(letter)
+                        .foregroundStyle(Color(hex: 0xF5C518).opacity(0.85))
+                        .offset(x: plate, y: plate)
+                    Text(letter)
+                        .foregroundStyle(LK.Palette.ink)
+                }
+                .font(LK.Typography.display(size * 0.52, weight: .bold))
             }
     }
 }

@@ -70,9 +70,18 @@ public extension LK {
         /// Display face. Nothing legibility-critical depends on it — UI text stays on SF.
         ///
         /// No font file has ever shipped for this family and there is no `UIAppFonts` entry,
-        /// so `.custom` falls back. The fallback is deliberately **SF Pro Rounded**: if the
-        /// display face is missing, something has to carry the product's register. Drop the
-        /// real file in and this reverts on its own.
+        /// so `.custom` falls back. The fallback carries the product's register on its own.
+        /// Drop the real file in and this reverts automatically.
+        ///
+        /// **The fallback is New York, Apple's serif.** It was SF Pro Rounded, which read as
+        /// friendly-app-generic and dated the moment the "lit" theme came out — rounded sans
+        /// is the house style of every delivery app this one is trying not to be. A serif on
+        /// dish names, cook names and prices reads closer to a menu or a market board, which
+        /// is the register the product actually wants.
+        ///
+        /// This is the whole app, not one screen: every `display` size below inherits it, so
+        /// the feed, the kitchen page, the dish sheet and the price figures all change
+        /// together. That is the point — but it is also why the revert is one word.
         public static let displayFamily = "BricolageGrotesque"
         private static let displayIsInstalled = UIFont(name: displayFamily, size: 12) != nil
 
@@ -80,7 +89,7 @@ public extension LK {
         /// price clarity is the product thesis.
         public static func display(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
             guard displayIsInstalled else {
-                return .system(size: size, weight: weight, design: .rounded).monospacedDigit()
+                return .system(size: size, weight: weight, design: .serif).monospacedDigit()
             }
             return .custom(displayFamily, size: size).weight(weight).monospacedDigit()
         }

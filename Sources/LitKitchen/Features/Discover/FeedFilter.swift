@@ -2,24 +2,12 @@ import SwiftUI
 
 /// Ways to narrow the feed.
 ///
-/// Four, and no more without a reason. A filter bar is a promise that each
-/// control changes the answer meaningfully, and a row of eight chips over a feed
-/// of nine kitchens is furniture rather than a tool. Each of these answers a
-/// question a buyer actually has at six o'clock on a weeknight.
-///
-/// All four are computed from what the feed has already loaded, so they apply
-/// instantly and cost no round trip. That also means they narrow *what is on
-/// screen* rather than re-querying a wider net — the radius still decides what
-/// arrived, and a filter cannot reach past it.
+/// Each one answers a question a buyer actually has at six o'clock on a
+/// weeknight, and all of them are computed from what the feed has already
+/// loaded — so they apply instantly and cost no round trip. That also means
+/// they narrow *what is on screen* rather than re-querying a wider net: the
+/// radius still decides what arrived, and a filter cannot reach past it.
 enum FeedFilter: String, CaseIterable, Identifiable {
-    /// Only kitchens whose permit matched the county register.
-    ///
-    /// The one filter that changes what a buyer is trusting rather than what
-    /// they are eating. Deliberately reads "Permitted" and not "Verified" —
-    /// `verified` means the permit exists at this address and is unclaimed
-    /// here, which is not the same as this person holding it (030), and the
-    /// badge copy has never claimed otherwise.
-    case permitted
     /// Confirmed in the last couple of hours, rather than lit this morning and
     /// untouched since.
     ///
@@ -27,59 +15,69 @@ enum FeedFilter: String, CaseIterable, Identifiable {
     /// already excludes kitchens that decayed all the way out, but it still
     /// includes `unconfirmed` — somebody who turned their light on at 11am and
     /// has not opened the app since. That is the exact case the feed warns
-    /// about in prose ("Ask before you drive"); this lets a buyer skip it.
-    case stillCooking
-    /// Within roughly a fifteen-minute round trip.
-    case closeBy
-    /// Well reviewed, by enough people for that to mean anything.
+    /// about in prose ("Ask if they're still cooking"); this lets a buyer skip
+    /// it.
     ///
-    /// Gated on `hasMeaningfulRating`, so a cook with one glowing review does
-    /// not outrank one with forty. Without that floor this filter surfaces
-    /// whoever happened to get reviewed first, which looks like a quality
-    /// signal and is really a luck signal.
+    /// Drawn first and never selected by default. The mock shows it filled,
+    /// but switching it on at launch would silently hide every unconfirmed
+    /// kitchen from a buyer who never asked for that — a filter that hides
+    /// listings has to be a choice somebody made.
+    case cookingNow
+    /// Close enough to be there and back inside a lunch break.
     ///
-    /// Expect this to read 0 for a long time. That is honest: the chip shows
-    /// its count and disables itself, so nobody taps into an empty feed
-    /// wondering what they did wrong.
-    case wellReviewed
+    /// Reads as time rather than distance because that is the decision being
+    /// made, and because ten minutes means roughly the same errand to a walker
+    /// and to a driver while "under 2 mi" does not.
+    case underTenMinutes
+    /// Cheap enough not to think about.
+    case underTenDollars
+    /// Sold by the tray — the party and potluck case, and the one search is
+    /// worst at, because nobody types "tray".
+    case trays
+    /// Only kitchens whose permit matched the county register.
+    ///
+    /// The one filter that changes what a buyer is trusting rather than what
+    /// they are eating. Deliberately reads "Permitted" and not "Verified" —
+    /// `verified` means the permit exists at this address and is unclaimed
+    /// here, which is not the same as this person holding it (030), and the
+    /// badge copy has never claimed otherwise.
+    ///
+    /// Not in the mock. Kept anyway: dropping the only trust control on the
+    /// screen is a product decision, not a layout one.
+    case permitted
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .permitted:    "Permitted"
-        case .stillCooking: "Still cooking"
-        case .closeBy:      "Under 2 mi"
-        case .wellReviewed: "Well reviewed"
+        case .cookingNow:      "Cooking now"
+        case .underTenMinutes: "Under 10 min"
+        case .underTenDollars: "Under $10"
+        case .trays:           "Trays"
+        case .permitted:       "Permitted"
         }
     }
 
-    var icon: String {
-        switch self {
-        case .permitted:    "checkmark.seal"
-        case .stillCooking: "flame"
-        case .closeBy:      "location"
-        case .wellReviewed: "star"
-        }
-    }
-
-    /// 2 miles in metres. A round number to a buyer, an awkward one here.
-    private static let closeByMetres: Double = 3218.7
+    /// Ten minutes at the driving estimate. Held as a distance because that is
+    /// what a result carries; `TravelTime` owns the conversion.
+    private static let tenMinuteMetres: Double = 6.9 * 60 * 10
+    private static let tenDollarsCents = 1_000
 
     func accepts(_ result: DiscoveryResult) -> Bool {
         switch self {
-        case .permitted:    result.isVerified
-        case .stillCooking: result.freshness == .lit
-        case .closeBy:      result.distanceM <= Self.closeByMetres
-        case .wellReviewed: result.hasMeaningfulRating && (result.rating ?? 0) >= 4.0
+        case .cookingNow:      result.freshness == .lit
+        case .underTenMinutes: result.distanceM <= Self.tenMinuteMetres
+        case .underTenDollars: (result.minPriceCents ?? .max) <= Self.tenDollarsCents
+        case .trays:           result.minPriceUnit == .tray
+        case .permitted:       result.isVerified
         }
     }
 }
 
 extension Set where Element == FeedFilter {
     /// Every active filter must accept the kitchen. Narrowing rather than
-    /// widening: two chips means "permitted *and* close", which is what
-    /// selecting two things looks like it should do.
+    /// widening: two chips means "cheap *and* close", which is what selecting
+    /// two things looks like it should do.
     func apply(to results: [DiscoveryResult]) -> [DiscoveryResult] {
         guard !isEmpty else { return results }
         return results.filter { r in allSatisfy { $0.accepts(r) } }
@@ -87,10 +85,16 @@ extension Set where Element == FeedFilter {
 }
 
 /// The chip row under the search field.
+///
+/// Squared off rather than capsules, and unfilled until selected. A row of
+/// filled pills reads as five buttons all asking to be pressed; an outline says
+/// "these are available" and lets the food underneath stay the loudest thing on
+/// the screen.
 struct FeedFilterBar: View {
     @Binding var active: Set<FeedFilter>
-    /// How many kitchens each filter would leave, so a chip that empties the
-    /// feed says so before it is tapped rather than after.
+    /// How many kitchens each filter would leave. The number is no longer
+    /// drawn — it disables the chip instead, so a control that would empty the
+    /// feed cannot be tapped, without spending a digit on every chip to say so.
     var counts: (FeedFilter) -> Int
 
     var body: some View {
@@ -102,32 +106,32 @@ struct FeedFilterBar: View {
                     Button {
                         if on { active.remove(filter) } else { active.insert(filter) }
                     } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: filter.icon)
-                                .font(LK.Typography.ui(11.5, weight: .semibold))
-                            Text(filter.label)
-                                .font(LK.Typography.ui(13.5, weight: .semibold))
-                            // The count is the honest part: "Permitted 0" is a
-                            // useful thing to know without tapping.
-                            Text("\(n)")
-                                .font(LK.Typography.ui(12, weight: .bold))
-                                .monospacedDigit()
-                                .opacity(on ? 0.75 : 0.5)
-                        }
-                        .foregroundStyle(on ? Color.white : LK.Palette.inkQuiet)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(on ? LK.Palette.ink : LK.Palette.chip, in: Capsule())
-                        .contentShape(Capsule())
+                        Text(filter.label)
+                            .font(LK.Typography.ui(14, weight: .medium))
+                            .foregroundStyle(on ? LK.Palette.inkOnAction : LK.Palette.ink)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 36)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(on ? LK.Palette.action : .clear)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(
+                                        on ? .clear : LK.Palette.ink.opacity(0.16),
+                                        lineWidth: 1
+                                    )
+                            }
+                            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(n == 0 && !on)
-                    .opacity(n == 0 && !on ? 0.45 : 1)
+                    .opacity(n == 0 && !on ? 0.4 : 1)
                 }
 
                 if !active.isEmpty {
                     Button("Clear") { active.removeAll() }
-                        .font(LK.Typography.ui(13, weight: .semibold))
+                        .font(LK.Typography.ui(14, weight: .medium))
                         .foregroundStyle(LK.Palette.action)
                         .padding(.horizontal, 4)
                         .buttonStyle(.plain)

@@ -17,6 +17,27 @@ final class CookingNowViewModel {
     var errorMessage: String?
 
     var darkCount: Int { dark.count }
+    /// How many kitchens `load` held back for having no photograph.
+    private(set) var hiddenWithoutPhoto = 0
+
+    /// A kitchen earns a place in the feed by having something to show.
+    ///
+    /// The photograph is the whole row now, and a listing without one is a
+    /// grey tile among pictures of food — it reads as a broken row rather than
+    /// as a cook who has not got round to it, and it drags down every real
+    /// listing beside it.
+    ///
+    /// **This hides real cooks, not just ugly rows.** Someone who lights their
+    /// burner before uploading a photo is invisible here until they add one —
+    /// no warning, no placement at the bottom, simply absent. That is the
+    /// intended trade for now, but it is a policy and not a layout detail, and
+    /// it is the reason `hiddenWithoutPhoto` is counted rather than discarded
+    /// silently. Search and the map are deliberately unaffected: a buyer
+    /// looking for a specific dish should still find it.
+    private static func hasPhoto(_ result: DiscoveryResult) -> Bool {
+        guard let photo = result.headlinePhoto else { return false }
+        return !photo.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     /// Read, never stored. The one answer lives in `BrowsingOrigin`, so the
     /// feed and the map cannot disagree about where "near you" is.
@@ -41,8 +62,10 @@ final class CookingNowViewModel {
             // the same origin found them, because `SearchViewModel` has always
             // had this line and this one did not.
             guard !Task.isCancelled else { return }
-            lit = all.filter(\.isCooking)
-            dark = all.filter { !$0.isCooking }
+            let shown = all.filter(Self.hasPhoto)
+            hiddenWithoutPhoto = all.count - shown.count
+            lit = shown.filter(\.isCooking)
+            dark = shown.filter { !$0.isCooking }
             errorMessage = nil
         } catch {
             errorMessage = UserFacingError.message(for: error, fallback: "Couldn't load who's cooking. Pull to refresh.")
@@ -82,6 +105,22 @@ final class CookingNowViewModel {
         guard !lit.isEmpty else { return "Nobody's cooking near \(place)" }
         return "\(lit.count) kitchen\(lit.count == 1 ? "" : "s") near \(place) · nearest first"
     }
+
+    /// 15 minutes at the driving estimate.
+    private static let fifteenMinuteMetres: Double = 6.9 * 60 * 15
+
+    /// The count that sits beside the title — "41 within 15 min".
+    ///
+    /// A reachability figure rather than a total. "76 kitchens" is a boast; the
+    /// number a buyer can act on is how many are close enough to bother with,
+    /// and it is the same unit the second filter chip uses.
+    var reachLabel: String? {
+        guard !lit.isEmpty else { return nil }
+        let near = lit.filter { $0.metres(from: origin) <= Self.fifteenMinuteMetres }.count
+        // Everything loaded is within reach: the qualifier would be noise.
+        guard near > 0 else { return nil }
+        return "\(near) within 15 min"
+    }
 }
 
 struct CookingNowView: View {
@@ -106,15 +145,21 @@ struct CookingNowView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                searchField
-                if !hasQuery, !model.lit.isEmpty {
-                    FeedFilterBar(active: $filters) { filter in
-                        model.lit.filter(filter.accepts).count
-                    }
-                    .padding(.bottom, 10)
+                // Search no longer sits above the title.
+                //
+                // It was pinned at the top with the title scrolling beneath it,
+                // which put a text field — the control for the one job the feed
+                // is *not* doing — in the most valuable strip on the screen.
+                // The title leads, search follows, and both scroll away with
+                // the chips so that pulling up gets you food rather than
+                // furniture.
+                if hasQuery {
+                    searchField
+                    if !searchModel.expansion.isEmpty { expansionRow }
+                    searchResults
+                } else {
+                    feed
                 }
-                if hasQuery, !searchModel.expansion.isEmpty { expansionRow }
-                if hasQuery { searchResults } else { feed }
             }
             .background(LK.Palette.ground)
             .navigationDestination(for: DiscoveryResult.self) { result in
@@ -150,11 +195,15 @@ struct CookingNowView: View {
         // loudest control in the app — a search box shouldn't outrank the food
         // under it. Focus is a 1pt `action` border plus a soft halo, the same
         // treatment every other field gets.
-        .background(LK.Palette.surface, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusField, style: .continuous))
+        // A recessed grey well rather than a white card with a rule round it.
+        // Sunk into the page, it stops competing with the rows, which are now
+        // the only white — and a field that looks like a hole is the oldest
+        // signal in the toolkit for "type here".
+        .background(LK.Palette.chip, in: RoundedRectangle(cornerRadius: LK.Metrics.radiusField, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: LK.Metrics.radiusField, style: .continuous)
                 .strokeBorder(
-                    searchFocused ? LK.Palette.action.opacity(0.5) : LK.Palette.hairline,
+                    searchFocused ? LK.Palette.action.opacity(0.5) : .clear,
                     lineWidth: 1
                 )
         }
@@ -166,8 +215,7 @@ struct CookingNowView: View {
             }
         }
         .padding(.horizontal, LK.Metrics.feedGutter)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
+        .padding(.bottom, 12)
     }
 
     /// The answer to mixed-language input, made visible. Carried over from the
@@ -196,23 +244,25 @@ struct CookingNowView: View {
 
     private var searchResults: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 0) {
                 if !searchModel.lit.isEmpty {
                     SectionHeader("Cooking right now · \(searchModel.lit.count)")
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, LK.Metrics.feedGutter)
+                        .padding(.bottom, 8)
                 }
                 ForEach(searchModel.lit) { result in
-                    NavigationLink(value: result) { LitKitchenCard(result: result) }
-                        .buttonStyle(.plain)
+                    row(result)
                 }
                 if !searchModel.dark.isEmpty {
                     SectionHeader("Closed right now · \(searchModel.dark.count)")
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
+                        .padding(.horizontal, LK.Metrics.feedGutter)
+                        .padding(.top, 18)
+                        .padding(.bottom, 8)
                 }
                 ForEach(searchModel.dark) { result in
-                    NavigationLink(value: result) { LitKitchenCard(result: result) }
-                        .buttonStyle(.plain)
+                    row(result)
                 }
                 if searchModel.lit.isEmpty && searchModel.dark.isEmpty && searchModel.hasSearched && !searchModel.isSearching {
                     // Says how far it looked. "Nothing nearby" is unfalsifiable
@@ -223,12 +273,12 @@ struct CookingNowView: View {
                         .font(LK.Typography.body)
                         .foregroundStyle(LK.Palette.inkQuiet)
                         .multilineTextAlignment(.center)
+                        .padding(.horizontal, LK.Metrics.feedGutter)
                         .padding(.top, 40)
                 }
             }
-            .padding(.horizontal, LK.Metrics.feedGutter)
         }
-        .contentMargins(.bottom, 28, for: .scrollContent)
+        .contentMargins(.bottom, 96, for: .scrollContent)
     }
 
     /// Filtered the feed to nothing. Deliberately distinct from "nobody is
@@ -249,18 +299,26 @@ struct CookingNowView: View {
                 .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, LK.Metrics.feedGutter)
         .padding(.vertical, 34)
     }
 
     private var feed: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 0) {
                 header
-                ForEach(filters.apply(to: model.lit)) { result in
-                    NavigationLink(value: result) {
-                        LitKitchenCard(result: result)
+                searchField
+                if !model.lit.isEmpty {
+                    FeedFilterBar(active: $filters) { filter in
+                        model.lit.filter(filter.accepts).count
                     }
-                    .buttonStyle(.plain)
+                    .padding(.bottom, 14)
+                }
+                if !model.lit.isEmpty, !filters.apply(to: model.lit).isEmpty {
+                    stoveHeader
+                }
+                ForEach(filters.apply(to: model.lit)) { result in
+                    row(result)
                 }
                 // Filtered everything away: distinct from having no
                 // kitchens at all, and the way out is a tap.
@@ -282,21 +340,17 @@ struct CookingNowView: View {
                 }
                 darkRow
 
-                // Revealed on demand. `LitKitchenCard` already renders a closed
+                // Revealed on demand. `LitKitchenRow` already renders a closed
                 // kitchen correctly — desaturated photo, no lamp glow — so this
                 // needs no separate card, the same way search reuses it.
                 if model.showingClosed {
                     ForEach(filters.apply(to: model.dark)) { result in
-                        NavigationLink(value: result) {
-                            LitKitchenCard(result: result)
-                        }
-                        .buttonStyle(.plain)
+                        row(result)
                     }
                 }
             }
-            .padding(.horizontal, LK.Metrics.feedGutter)
         }
-        .contentMargins(.bottom, 28, for: .scrollContent)
+        .contentMargins(.bottom, 96, for: .scrollContent)
         // Content scrolls under the status bar, and dish names were colliding
         // with the clock — verified in the simulator with a full feed. A
         // frosted strip keeps the time legible without a hard bar that would
@@ -329,17 +383,59 @@ struct CookingNowView: View {
     /// subtitle, where it is still the first fact but no longer a second
     /// headline competing with the first.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .firstTextBaseline) {
             Text("Cooking now")
                 .font(LK.Typography.screenTitle)
                 .foregroundStyle(LK.Palette.ink)
-            Text(model.subtitleLine)
-                .font(LK.Typography.meta)
-                .foregroundStyle(LK.Palette.inkTertiary)
+            Spacer(minLength: 10)
+            // The count moves onto the title's baseline instead of sitting on
+            // its own line underneath. It was carrying three facts — a total, a
+            // place name and the sort order — and a buyer reads none of them
+            // before the first dish. What survives is the one that changes a
+            // decision: how many are actually near.
+            if let reach = model.reachLabel {
+                Text(reach)
+                    .font(LK.Typography.meta)
+                    .foregroundStyle(LK.Palette.inkTertiary)
+                    .lineLimit(1)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 4)
-        .padding(.bottom, 2)
+        .padding(.horizontal, LK.Metrics.feedGutter)
+        .padding(.top, 6)
+        .padding(.bottom, 12)
+    }
+
+    /// Says what the list is and how it is ordered.
+    ///
+    /// Too Good To Go — the closest analogue to this app, surplus food
+    /// collected in a window — sorts by distance and never tells anyone, and
+    /// design critiques name that as a specific failure: people cannot tell
+    /// whether the top result is the closest, the cheapest or the newest, so
+    /// they read the whole list to be sure. Two words fix it, and they belong
+    /// against the rows they describe rather than up in the title block.
+    private var stoveHeader: some View {
+        VStack(spacing: 8) {
+            Text("At the stove — nearest first")
+                .font(LK.Typography.caps)
+                .textCase(.uppercase)
+                .tracking(LK.Typography.capsTracking)
+                .foregroundStyle(LK.Palette.inkTertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider().overlay(LK.Palette.hairline)
+        }
+        .padding(.horizontal, LK.Metrics.feedGutter)
+    }
+
+    /// One row plus the rule under it.
+    private func row(_ result: DiscoveryResult) -> some View {
+        VStack(spacing: 0) {
+            NavigationLink(value: result) {
+                LitKitchenRow(result: result, origin: model.origin)
+            }
+            .buttonStyle(.plain)
+            Divider().overlay(LK.Palette.hairline)
+        }
+        .padding(.horizontal, LK.Metrics.feedGutter)
     }
 
     /// The moment the app has nothing to show is exactly when "look somewhere
@@ -376,6 +472,7 @@ struct CookingNowView: View {
             .buttonStyle(.plain)
             .padding(.top, 4)
         }
+        .padding(.horizontal, LK.Metrics.feedGutter)
         .padding(.vertical, 40)
     }
 
@@ -394,6 +491,7 @@ struct CookingNowView: View {
             .font(LK.Typography.bodyEmphasis)
             .foregroundStyle(LK.Palette.action)
         }
+        .padding(.horizontal, LK.Metrics.feedGutter)
         .padding(.vertical, 40)
     }
 
@@ -419,6 +517,7 @@ struct CookingNowView: View {
                 .font(LK.Typography.bodyEmphasis)
                 .tint(LK.Palette.action)
             }
+            .padding(.horizontal, LK.Metrics.feedGutter)
             .padding(.vertical, 10)
         }
     }
@@ -444,111 +543,181 @@ struct CookingNowView: View {
 ///
 /// Ordering is unchanged and still deliberate: availability, then dish, then
 /// cook. It is now carried by position and weight rather than by colour.
-struct LitKitchenCard: View {
+struct LitKitchenRow: View {
     let result: DiscoveryResult
+    /// Where the buyer is browsing from, so the travel estimate answers "how
+    /// far is this from me" rather than "from the middle of the map".
+    let origin: Coordinate
 
     private var tier: FreshnessTier { result.freshness ?? .out }
     private var isUnconfirmed: Bool { tier == .unconfirmed }
+    private var dishName: String {
+        result.localizedHeadlineItems?.first ?? result.displayName
+    }
 
-    /// Sized so five cards still fit a screen. A full-bleed hero would be more
-    /// striking and would show two — wrong for a feed whose job is letting you
-    /// compare what is cooking near you right now.
+    /// The photograph is the row.
     ///
-    /// 124 was too greedy in the other direction: the text column got so narrow
-    /// that "Estela R." truncated to "Estela…", because the distance and the
-    /// time are pinned and the name absorbs whatever is left. A nine-character
-    /// name should never clip.
-    private var photoWidth: CGFloat { 106 }
-    private var rowHeight: CGFloat { 104 }
+    /// It was a 56pt tile — the size you use for an icon, on a feed whose
+    /// entire subject is what the food looks like. At 112 × 96 it holds about
+    /// three and a half times the area and is the first thing the eye lands on,
+    /// which is the correct order: nobody decides to walk to a stranger's house
+    /// off a price column.
+    ///
+    /// 4:3 rather than square, and cropped to it. Food photographs are taken
+    /// landscape and a square crop takes the plate's edges off.
+    private var photoWidth: CGFloat { 112 }
+    private var photoHeight: CGFloat { 96 }
 
     var body: some View {
-        // The photograph runs to the card's own edge.
-        //
-        // It was an 86pt square inset by 12pt of padding — a thumbnail floating
-        // in a box, taking about a fifth of a card whose entire subject is what
-        // the food looks like. Bleeding it to three edges buys ~40% more image
-        // without making the card taller, and removes the frame-inside-a-frame
-        // that made these read as rows rather than as things worth looking at.
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 13) {
             DishPhoto(
                 urlString: result.headlinePhoto,
                 size: photoWidth,
-                height: rowHeight,
-                cornerRadius: 0,
-                isLit: result.isCooking
+                height: photoHeight,
+                cornerRadius: 10,
+                isLit: result.isCooking,
+                monogramSource: dishName
             )
-            // Unconfirmed dims the food rather than hiding it — the kitchen may
-            // well still be open, and the card must not assert otherwise.
             .opacity(isUnconfirmed ? 0.7 : 1)
 
-            // Name, then price, then the facts.
-            //
-            // The price used to sit last, under the meta line. A buyer scans
-            // dish → cost → how far, so cost was the one thing arriving after
-            // the small grey text instead of before it.
-            VStack(alignment: .leading, spacing: 4) {
-                Text(result.localizedHeadlineItems?.first ?? result.displayName)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(dishName)
                     .font(LK.Typography.dishNameCard)
-                    .tracking(-0.475)          // -0.025em at 19pt
-                    .lineSpacing(19 * 0.15)
                     .foregroundStyle(isUnconfirmed ? LK.Palette.inkQuiet : LK.Palette.ink)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-
-                priceLine
-                metaLine
+                kitchenLine
+                travelLine
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // Matches the photo, so a one-line dish and a two-line dish make
+            // the same row and the price column stays on a grid. Centred
+            // rather than top-aligned: three lines against a 96pt photograph
+            // left a visible hole under the travel time, and the block reads
+            // as set beside the picture rather than dropped in above it.
+            .frame(height: photoHeight, alignment: .leading)
+
+            Spacer(minLength: 6)
+            priceColumn
         }
-        .frame(height: rowHeight)
-        .background(LK.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: LK.Metrics.radiusCard, style: .continuous))
-        // No elevation when unconfirmed: a card that may be stale should not
-        // sit forward of the ones that are certainly live.
-        .modifier(ConditionalCardShadow(enabled: !isUnconfirmed))
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
     }
 
-    /// The name gives way, the facts do not.
-    ///
-    /// This was one joined string with `lineLimit(1)`, which truncates from the
-    /// end — so a long cook name ate the two things a buyer decides on. "Demo
-    /// Kitchen (Chef Next Door) · nearb…" lost the distance mid-word and the
-    /// "since" time entirely, on the card that is supposed to answer *how far*
-    /// and *how recently*.
-    ///
-    /// Split, with the facts pinned by `fixedSize` and a higher layout
-    /// priority. A name that does not fit is now the thing that shortens,
-    /// which is the right trade: you can recognise a kitchen from a clipped
-    /// name, and you cannot recover a distance that was never drawn.
-    private var metaLine: some View {
-        HStack(spacing: 6) {
-            LampDot(tier: tier)
-            HStack(spacing: 0) {
-                Text(result.displayName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(0)
-                Text(factsText)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(1)
+    /// Who is cooking it, and what people said. The rating rides here rather
+    /// than on its own line because it qualifies the cook, not the dish.
+    private var kitchenLine: some View {
+        HStack(spacing: 5) {
+            Text(result.displayName)
+                .font(LK.Typography.dishNameRow.weight(.regular))
+                .foregroundStyle(LK.Palette.inkQuiet)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if result.hasMeaningfulRating, let rating = result.rating {
+                HStack(spacing: 2) {
+                    Image(systemName: "star.fill")
+                        .font(LK.Typography.ui(10))
+                    Text(String(format: "%.1f", rating))
+                        .font(LK.Typography.ui(13, weight: .medium))
+                        .monospacedDigit()
+                }
+                .foregroundStyle(LK.Palette.inkQuiet)
+                .fixedSize()
             }
-            .font(LK.Typography.meta)
-            .foregroundStyle(LK.Palette.inkTertiary)
-            if result.isVerified { VerifiedBadge(size: 13) }
+            if result.isVerified { VerifiedBadge(size: 12) }
         }
     }
 
-    /// Distance and freshness, with their own leading separator so the name can
-    /// be truncated without stranding a dot.
-    private var factsText: String {
-        var parts = [result.distanceLabel]
-        if let since = result.sinceLabel { parts.append(since) }
-        return " · " + parts.joined(separator: " · ")
+    /// How long to get there, then how long they have been at it.
+    ///
+    /// The travel time is the only coloured text in the row. It is the fact
+    /// that decides whether a buyer keeps reading, and it is the one thing here
+    /// the app computed rather than merely relayed.
+    private var travelLine: some View {
+        HStack(spacing: 5) {
+            Text(result.travelTime(from: origin).label)
+                .foregroundStyle(LK.Palette.action)
+            // The bullet belongs to the second half, so a row with nothing
+            // honest to say about duration ends after the travel time rather
+            // than trailing a dot.
+            if isUnconfirmed {
+                // Replaces the elapsed time rather than joining it. An
+                // unconfirmed kitchen may well still be open and the row must
+                // not assert otherwise — but a duration beside a stale light
+                // reads as a promise, so the row asks instead.
+                separator
+                Text("ask if still cooking")
+                    .foregroundStyle(LK.Palette.action)
+            } else if let cooking = cookingForLabel {
+                separator
+                Text(cooking)
+                    .foregroundStyle(LK.Palette.inkTertiary)
+            }
+        }
+        .font(LK.Typography.ui(13.5))
+        .lineLimit(1)
+    }
+
+    private var separator: some View {
+        Text("•").foregroundStyle(LK.Palette.inkTertiary.opacity(0.5))
+    }
+
+    /// "on 44 min", "on 2 hr" — how long the light has been on.
+    ///
+    /// Elapsed, where every other surface in the app shows an absolute clock
+    /// time. The trade is deliberate and narrow to this row: in a list you are
+    /// scanning for freshness, and "on 20 min" answers that without arithmetic
+    /// while "since 9:20 pm" makes you do it against a clock you have to find.
+    /// The kitchen page still leads with the absolute time, which is the one
+    /// that stays true if you read it an hour later.
+    ///
+    /// Computed at render rather than stored, so a feed left open does not go
+    /// quietly wrong — and the feed reloads on appearance and on pull anyway.
+    private var cookingForLabel: String? {
+        guard let openedAt = result.openedAt, result.isCooking else { return nil }
+        let minutes = Int(Date().timeIntervalSince(openedAt) / 60)
+        guard minutes >= 1 else { return "just now" }
+        if minutes < 60 { return "on \(minutes) min" }
+        // Past half a day the number stops being a freshness signal and starts
+        // being a bug report: the dev seed re-confirms its sessions on a cron,
+        // so kitchens opened on Tuesday were reading "on 90 hr" in the feed. A
+        // real cook who leaves their light on overnight would produce the same
+        // line. Nothing honest can be said about a duration that long, so the
+        // row says nothing and lets the travel time stand on its own.
+        guard minutes < 12 * 60 else { return nil }
+        return "on \(minutes / 60) hr"
+    }
+
+    /// Price right-aligned in its own column, so the figures form a line a
+    /// buyer can run an eye down. This is the comparison the feed exists to
+    /// support and it does not survive a price that starts wherever the dish
+    /// name happened to end.
+    @ViewBuilder
+    private var priceColumn: some View {
+        if let price = result.startingPrice {
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(price.figure)
+                    .font(LK.Typography.titleSecondary)
+                    .monospacedDigit()
+                    .foregroundStyle(isUnconfirmed ? LK.Palette.inkQuiet : LK.Palette.ink)
+                Text(unitLine(price))
+                    .font(LK.Typography.ui(12))
+                    .foregroundStyle(LK.Palette.inkTertiary)
+                    .lineLimit(1)
+            }
+            .fixedSize()
+        }
+    }
+
+    /// "each", or "each · min 3" when a minimum applies. The qualifier belongs
+    /// under the figure rather than beside it — it is a condition on the price,
+    /// and reading it as part of the number is how somebody turns up expecting
+    /// to buy one tamale.
+    private func unitLine(_ price: Price) -> String {
+        price.qualifier.isEmpty
+            ? price.unitLabel
+            : "\(price.unitLabel) \(price.qualifier)"
     }
 
     private var metaText: String {
@@ -557,41 +726,11 @@ struct LitKitchenCard: View {
         return parts.joined(separator: " · ")
     }
 
-    /// A price, or — when the kitchen is unconfirmed — the thing to do about it.
-    @ViewBuilder
-    private var priceLine: some View {
-        if isUnconfirmed {
-            // There is something to *do* here, so this line is an affordance
-            // rather than a fact. A price on an unconfirmed kitchen invites a
-            // drive to a door that may be shut.
-            Text("Ask if they're still cooking")
-                .font(LK.Typography.bodyEmphasis)
-                .foregroundStyle(LK.Palette.action)
-        } else if let price = result.startingPrice {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(price.figure)
-                    .font(LK.Typography.dishNameCard)
-                    .monospacedDigit()
-                    .foregroundStyle(LK.Palette.ink)
-                Text(price.unitLabel)
-                    .font(LK.Typography.ui(14, weight: .semibold))
-                    .foregroundStyle(LK.Palette.ink)
-                if !price.qualifier.isEmpty {
-                    Text(price.qualifier)
-                        .font(LK.Typography.meta)
-                        .foregroundStyle(LK.Palette.inkTertiary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            }
-        }
-    }
-
     private var accessibilityText: String {
-        let dish = result.localizedHeadlineItems?.first ?? result.displayName
         let state = isUnconfirmed ? "unconfirmed, ask if they're still cooking" : "cooking"
         let price = result.startingPrice.map { ", \($0.displayWithMinimum)" } ?? ""
-        return "\(dish), \(state), \(metaText)\(price)"
+        let travel = result.travelTime(from: origin).label
+        return "\(dishName), \(state), \(travel), \(metaText)\(price)"
     }
 }
 
