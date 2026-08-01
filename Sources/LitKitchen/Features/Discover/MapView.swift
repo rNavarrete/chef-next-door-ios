@@ -389,8 +389,7 @@ struct MapKitchenView: View {
                         MapPin(
                             result: single,
                             isSelected: model.selected?.id == single.id,
-                            showsPricePill: model.selected?.id == single.id,
-                            showsCookingGlow: model.showClosed
+                            showsPricePill: model.selected?.id == single.id
                         )
                         .onTapGesture {
                             // Raises the sheet in place. Tapping a pin must
@@ -576,8 +575,6 @@ private struct MapPin: View {
     let result: DiscoveryResult
     let isSelected: Bool
     var showsPricePill: Bool = true
-    /// True only while closed kitchens share the map. See the glow below.
-    var showsCookingGlow: Bool = false
 
     /// 4:3, the shape food photographs are actually taken in.
     private var photoWidth: CGFloat { 58 }
@@ -641,20 +638,17 @@ private struct MapPin: View {
             }
 
             ZStack {
-                // Only when closed kitchens are on screen too.
+                // The amber glow behind lit pins is gone. It was the last of
+                // the "lit" theme on this screen — a blurred marigold slab
+                // meaning "this one is cooking", shown when closed kitchens
+                // shared the map.
                 //
-                // This was "the lamp glow" — the lit metaphor, drawn. With
-                // `Show closed` off, which is the default, every pin on the map
-                // is already cooking, so a glow meaning "this one is cooking"
-                // separated nothing and was simply the loudest thing on screen.
-                // Hierarchy has to be earned: the distinction appears exactly
-                // when there is a distinction to make.
-                if result.isCooking, showsCookingGlow {
-                    RoundedRectangle(cornerRadius: shellRadius + 8, style: .continuous)
-                        .fill(LK.Palette.heat.opacity(tier == .lit ? 0.55 : 0.3))
-                        .frame(width: photoWidth + 26, height: shellHeight + 18)
-                        .blur(radius: 11)
-                }
+                // The distinction it drew is already carried, and carried
+                // better: a closed kitchen's photograph is desaturated, so the
+                // difference is grey food versus real food rather than a haze
+                // that made the pin look like it was leaking. It also cost a
+                // `.blur` — an offscreen render pass per pin, on the one screen
+                // in the app where per-pin cost is the whole performance story.
 
                 // Thick cream ring. This is the whole trick behind a marker
                 // reading as a friendly *place* rather than a data point: a
