@@ -11,6 +11,10 @@ import SwiftUI
 struct DishPhoto: View {
     let urlString: String?
     var size: CGFloat = 104
+    /// Defaults to `size`, i.e. square. Map pins pass a shorter height so a
+    /// 4:3 photograph is cropped to 4:3 rather than to a square — see
+    /// `MapPin`, where the crop was costing the picture its subject.
+    var height: CGFloat?
     var cornerRadius: CGFloat = LK.Metrics.radiusInner
     var isLit: Bool = true
 
@@ -48,7 +52,7 @@ struct DishPhoto: View {
                 failed = image == nil
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: size, height: height ?? size)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .saturation(isLit ? 1 : 0)
         .overlay {

@@ -116,6 +116,7 @@ struct MapKitchenView: View {
     /// does it need to answer "what and how much".
     private var showPills: Bool { span < 0.045 }
 
+
     /// How solid the privacy halo is, by zoom.
     ///
     /// A fixed fill cannot work at every zoom. The cell is ~400 m across, so
@@ -266,7 +267,7 @@ struct MapKitchenView: View {
                         MapPin(
                             result: single,
                             isSelected: model.selected?.id == single.id,
-                            showsPricePill: showPills || model.selected?.id == single.id,
+                            showsPricePill: model.selected?.id == single.id,
                             showsCookingGlow: model.showClosed
                         )
                         .onTapGesture {
@@ -431,6 +432,34 @@ private struct MapPin: View {
     /// True only while closed kitchens share the map. See the glow below.
     var showsCookingGlow: Bool = false
 
+    /// 4:3, the shape food photographs are actually taken in.
+    private var photoWidth: CGFloat { 58 }
+    private var photoHeight: CGFloat { 44 }
+    private var photoRadius: CGFloat { 11 }
+    private var shellRadius: CGFloat { 14 }
+    private var priceHeight: CGFloat { hasPrice ? 15 : 0 }
+    private var shellHeight: CGFloat { photoHeight + 8 + priceHeight }
+    private var hasPrice: Bool { result.startingPrice != nil && result.isCooking }
+
+    /// The price, carried by the marker itself.
+    ///
+    /// The photograph already says *what* — putting the dish name in text
+    /// beside a picture of the dish is the redundancy that made the floating
+    /// pills wide enough to collide. This says only *how much*, which is the
+    /// one thing a picture cannot.
+    @ViewBuilder
+    private var priceStrip: some View {
+        if let price = result.startingPrice, result.isCooking {
+            Text(price.display)
+                .font(LK.Typography.ui(10.5, weight: .heavy))
+                .monospacedDigit()
+                .foregroundStyle(LK.Palette.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(width: photoWidth, height: priceHeight)
+        }
+    }
+
     private var tier: FreshnessTier { result.freshness ?? .out }
 
     @State private var bob: CGFloat = 0
@@ -439,6 +468,12 @@ private struct MapPin: View {
         // Zero spacing: the stem has to touch the marker, or it reads as a
         // stray arrow rather than a pin. The pill gets its own padding.
         VStack(spacing: 0) {
+            // Only the selected pin gets the wide "price · dish" banner now.
+            // Floating it above every labelled pin put four of them across the
+            // map at city zoom, overlapping each other and covering the very
+            // photographs they were meant to annotate. The price moved into the
+            // marker instead — see `priceStrip` — where it cannot collide with
+            // anything the marker was not already covering.
             if showsPricePill, let price = result.startingPrice, result.isCooking {
                 Text("\(price.display) · \(shortDish)")
                     .font(LK.Typography.ui(12, weight: .heavy))
@@ -468,9 +503,9 @@ private struct MapPin: View {
                 // Hierarchy has to be earned: the distinction appears exactly
                 // when there is a distinction to make.
                 if result.isCooking, showsCookingGlow {
-                    Circle()
+                    RoundedRectangle(cornerRadius: shellRadius + 8, style: .continuous)
                         .fill(LK.Palette.heat.opacity(tier == .lit ? 0.55 : 0.3))
-                        .frame(width: diameter + 26, height: diameter + 26)
+                        .frame(width: photoWidth + 26, height: shellHeight + 18)
                         .blur(radius: 11)
                 }
 
@@ -479,23 +514,36 @@ private struct MapPin: View {
                 // heavy light outline separates it from whatever the map is
                 // doing underneath, at any zoom, over park green or freeway
                 // grey alike.
-                Circle()
+                // A rounded rectangle, not a circle.
+                //
+                // Food photographs are 4:3, and a circle inscribed in a square
+                // crop throws away most of the plate — six kitchens rendered as
+                // six brown-orange smudges, indistinguishable until tapped. The
+                // pin's whole payload is the picture, and the shape was eating
+                // it. Cropping 4:3 to 4:3 keeps the dish recognisable at the
+                // size it is actually drawn.
+                RoundedRectangle(cornerRadius: shellRadius, style: .continuous)
                     .fill(LK.Palette.surface)
-                    .frame(width: diameter + 9, height: diameter + 9)
+                    .frame(width: photoWidth + 8, height: shellHeight)
                     .shadow(color: LK.Palette.ink.opacity(0.28), radius: 5, y: 3)
 
-                DishPhoto(
-                    urlString: result.headlinePhoto,
-                    size: diameter,
-                    cornerRadius: diameter / 2,      // a circle
-                    isLit: result.isCooking          // dark kitchens desaturate
-                )
-                .opacity(result.isCooking ? 1 : 0.62)
+                VStack(spacing: 0) {
+                    DishPhoto(
+                        urlString: result.headlinePhoto,
+                        size: photoWidth,
+                        height: photoHeight,
+                        cornerRadius: photoRadius,
+                        isLit: result.isCooking      // closed kitchens desaturate
+                    )
+                    .opacity(result.isCooking ? 1 : 0.62)
+
+                    priceStrip
+                }
 
                 if tier == .unconfirmed {
-                    Circle()
+                    RoundedRectangle(cornerRadius: shellRadius, style: .continuous)
                         .strokeBorder(LK.Palette.inkTertiary, lineWidth: 2.5)
-                        .frame(width: diameter + 9, height: diameter + 9)
+                        .frame(width: photoWidth + 8, height: shellHeight)
                 }
             }
             // A slow bob, lit kitchens only. Enough to catch the eye on a still
