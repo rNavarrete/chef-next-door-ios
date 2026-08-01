@@ -177,6 +177,43 @@ public final class BrowsingOrigin {
         }
     }
 
+    /// Whether asking the device is worth doing at all.
+    ///
+    /// False only for a hard no — denied or restricted. `notDetermined` is
+    /// true, because the ask is exactly what resolves it.
+    public var canUseDeviceLocation: Bool {
+        authorization != .denied && authorization != .restricted
+    }
+
+    /// Take a fresh fix and browse from it. The map's recentre control.
+    ///
+    /// Deliberately not `followDevice()`, which clears `deviceFix` before
+    /// asking for a new one. Every surface keys off `coordinate`, so that
+    /// momentarily drops the origin back to Covina — the feed and the map would
+    /// load the San Gabriel Valley, then load again when the fix arrived.
+    /// Someone in Long Beach pressing "where am I" would watch the map fly to a
+    /// city they have never been to and then fly back.
+    ///
+    /// The old fix stays until a newer one replaces it, so the origin only ever
+    /// moves forwards. A manual place *is* cleared: recentring is the explicit
+    /// instruction to stop looking somewhere else.
+    ///
+    /// Also opens the welcome gate. Someone who declined location on the
+    /// welcome screen and later pressed this button has plainly changed their
+    /// mind, and `start()` would otherwise refuse to run for the rest of the
+    /// launch.
+    public func recenter() {
+        deferredForWelcome = false
+        place = nil
+        defaults.removeObject(forKey: Self.placeKey)
+        updates?.cancel()
+        updates = nil
+        // Shown even when a fix already exists — the button has to acknowledge
+        // the press, and "already know where you are" is not visible feedback.
+        isLocating = canUseDeviceLocation
+        start()
+    }
+
     /// Drop the manual choice and go back to following the device.
     public func followDevice() {
         place = nil

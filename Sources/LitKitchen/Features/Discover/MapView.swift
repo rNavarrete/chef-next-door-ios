@@ -105,6 +105,65 @@ struct MapKitchenView: View {
     @State private var span: Double = 0.09
     /// A tapped cluster whose members can't be separated by zooming.
     @State private var stackedCluster: MapCluster?
+    @State private var showingLocationDenied = false
+
+    /// Back to me.
+    ///
+    /// The map re-queries wherever it is dragged, which is the right behaviour
+    /// and leaves no way home: pan across to see what is cooking in Pasadena
+    /// and the only route back was to close the tab or search your own city by
+    /// name. Every map app has this control and people look for it.
+    ///
+    /// It does two things, because "recentre" and "recalculate" are different
+    /// asks and the button is the answer to both. The camera moves immediately
+    /// to the origin we already have — that alone fixes the panned-away case,
+    /// and it has to be unconditional, because if the fix comes back identical
+    /// then `coordinate` never changes and nothing else would move the map.
+    /// `recenter()` then asks the device for a fresh fix, and the `.task(id:)`
+    /// above re-frames if a better answer arrives.
+    private var recenterButton: some View {
+        Button {
+            guard browsing.canUseDeviceLocation else {
+                showingLocationDenied = true
+                return
+            }
+            withAnimation(.easeInOut(duration: 0.4)) {
+                camera = .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(
+                        latitude: browsing.coordinate.latitude,
+                        longitude: browsing.coordinate.longitude
+                    ),
+                    span: MKCoordinateSpan(latitudeDelta: 0.09, longitudeDelta: 0.09)
+                ))
+            }
+            browsing.recenter()
+        } label: {
+            Group {
+                if browsing.isLocating {
+                    ProgressView().tint(LK.Palette.ink)
+                } else {
+                    Image(systemName: browsing.canUseDeviceLocation
+                          ? (browsing.isFollowingDevice ? "location.fill" : "location")
+                          : "location.slash")
+                        .font(LK.Typography.ui(17, weight: .semibold))
+                        .foregroundStyle(LK.Palette.ink)
+                }
+            }
+            .frame(width: LK.Metrics.minHitTarget, height: LK.Metrics.minHitTarget)
+            .background(LK.Palette.surface.opacity(0.96), in: Circle())
+            .overlay(Circle().strokeBorder(LK.Palette.hairline, lineWidth: 1.5))
+            .shadow(color: LK.Palette.ink.opacity(0.16), radius: 6, y: 3)
+        }
+        .buttonStyle(.plain)
+        .disabled(browsing.isLocating)
+        .padding(.trailing, LK.Metrics.feedGutter)
+        // Clears the tab bar. The map runs full-bleed underneath it, so the
+        // safe area alone leaves the button under the glass.
+        .padding(.bottom, 22)
+        .accessibilityLabel(browsing.isFollowingDevice
+                            ? "Recentre on my location"
+                            : "Use my location")
+    }
 
     /// Price pills only survive at neighbourhood zoom.
     ///
@@ -145,6 +204,17 @@ struct MapKitchenView: View {
         ZStack(alignment: .top) {
             map
             topChrome
+        }
+        .overlay(alignment: .bottomTrailing) { recenterButton }
+        .alert("Location is off for Chef Next Door", isPresented: $showingLocationDenied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text("Turn it on in Settings to see who's cooking near you, or search for a place instead.")
         }
         // Keyed on the origin, so choosing a ZIP or getting a device fix
         // reloads and re-frames rather than leaving the map on the old city

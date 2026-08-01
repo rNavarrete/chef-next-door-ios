@@ -15,6 +15,17 @@
 -- The consequence is that a seeded feed goes quiet overnight, which is fine for
 -- production and inconvenient for looking at the app. Hence this.
 --
+-- ## Every kitchen, not the first eight
+--
+-- This lit eight and stopped, which was right when the seed was a handful of
+-- cooks in one valley. With ~92 spread from San Diego to Santa Maria, eight
+-- lights up a scatter nobody is standing next to: a tester in Long Beach could
+-- open a feed that had just been "refreshed" and still see almost nothing,
+-- because the eight lit kitchens were all in the San Gabriel Valley.
+--
+-- Density is the point of a seed. A thin one is indistinguishable from a broken
+-- app, and that is the exact confusion this was creating.
+--
 -- ## Confirmed, not just opened
 --
 -- Setting `opened_at` alone is not enough. `freshness_of()` reads
@@ -31,9 +42,8 @@ set search_path = public, extensions;
 
 do $$
 declare
-  v_wanted int := 8;
-  v_lit    int := 0;
-  r        record;
+  v_lit int := 0;
+  r     record;
 begin
   for r in
     select c.id as cook_id, k.id as kitchen_id, c.display_name
@@ -47,8 +57,6 @@ begin
      )
      order by c.display_name
   loop
-    exit when v_lit >= v_wanted;
-
     -- Idempotent. An already-open session is confirmed rather than duplicated —
     -- `open_kitchen` has the same rule, and a second open row for one cook would
     -- break the partial unique index the activity tokens rely on.
@@ -65,20 +73,16 @@ begin
     end if;
 
     update cooks set serving_status = 'serving' where id = r.cook_id;
-
     v_lit := v_lit + 1;
-    raise notice 'lit: %', r.display_name;
   end loop;
 
   raise notice '% kitchens lit', v_lit;
 end $$;
 
--- What a buyer will now see. `freshness_of` is the same function the feed ranks
--- on, so this is the real answer rather than a proxy for it.
-select co.display_name,
-       freshness_of(s.last_confirmed_at, s.closed_at) as freshness,
-       s.opened_by
+-- What a buyer will now see, by freshness. `freshness_of` is the same function
+-- the feed ranks on, so this is the real answer rather than a proxy for it.
+select freshness_of(s.last_confirmed_at, s.closed_at) as freshness,
+       count(*) as kitchens
   from serving_sessions s
-  join cooks co on co.id = s.cook_id
  where s.closed_at is null
- order by co.display_name;
+ group by 1 order by 1;
