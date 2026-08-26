@@ -41,7 +41,7 @@ struct WelcomeView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 16) {
-                Text("Neighbours cooking today")
+                Text("Neighbors cooking today")
                     .font(LK.Typography.screenTitle)
                     .foregroundStyle(LK.Palette.ink)
                     .multilineTextAlignment(.center)
@@ -49,7 +49,7 @@ struct WelcomeView: View {
                 VStack(spacing: 12) {
                     line("Home cooks near you, making food right now.")
                     line("Message them, arrange a pickup, and pay them directly — we never take a payment or a fee.")
-                    line("Everyone here is somebody's neighbour.")
+                    line("Everyone here is somebody's neighbor.")
                 }
             }
             .padding(.horizontal, LK.Metrics.screenPadding)

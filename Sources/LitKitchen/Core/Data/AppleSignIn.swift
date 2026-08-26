@@ -210,12 +210,61 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
 }
 
 extension AppleSignInCoordinator: ASAuthorizationControllerPresentationContextProviding {
+    /// Where to put the sheet.
+    ///
+    /// **`ASPresentationAnchor()` was the bug.** The old fallback constructed a
+    /// bare `UIWindow` belonging to no scene, with a zero frame, and handed it
+    /// to AuthenticationServices as the thing to present into. Nothing can be
+    /// presented into a detached window: no sheet appears, no delegate method
+    /// fires, and the continuation is never resumed. The button spins forever.
+    ///
+    /// `didPresent` made it worse. It was set on the *first line*, before the
+    /// anchor had been resolved, so a failed lookup still marked the flow as
+    /// "presented" — which is precisely the signal the watchdog uses to decide
+    /// a request is merely slow rather than dead. The one safety net for this
+    /// failure was disabled by the failure itself.
+    ///
+    /// Rejected under Guideline 2.1 on an iPad Air (M3): "the app did not
+    /// produce any further actions when tapping Sign In". The app is
+    /// iPhone-only, so on iPad it runs in compatibility mode, where the single
+    /// `foregroundActive` scene with a non-nil `keyWindow` that the old lookup
+    /// insisted on is not guaranteed to exist at the moment of the call.
+    ///
+    /// So: try progressively weaker conditions, and only claim to have
+    /// presented once a real, scene-attached window is in hand.
     public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+
+        let anchor =
+            // The window the system considers key, on the active scene.
+            scenes.first { $0.activationState == .foregroundActive }?.keyWindow
+            // Active scene, but nothing is key yet — during a transition, or
+            // when a sheet above us holds first responder.
+            ?? scenes.first { $0.activationState == .foregroundActive }?
+                .windows.first { !$0.isHidden }
+            // Foreground but not yet active. Common on iPad, and on any
+            // multi-window presentation.
+            ?? scenes.first { $0.activationState == .foregroundInactive }?
+                .windows.first { !$0.isHidden }
+            // Any attached window at all beats a detached one.
+            ?? scenes.flatMap(\.windows).first { !$0.isHidden }
+
+        guard let anchor else {
+            // Nothing to present into. Fail now and say so, rather than
+            // returning a detached window and hanging until the watchdog —
+            // which, with `didPresent` left false, would at least fire.
+            log.error("apple: no presentable window — \(scenes.count, privacy: .public) scene(s)")
+            let pending = continuation
+            continuation = nil
+            self.controller = nil
+            pending?.resume(throwing: AppleSignInError.failed(
+                "Couldn't open the Apple sign-in sheet. Try the email option below."
+            ))
+            return ASPresentationAnchor()
+        }
+
         didPresent = true
-        log.info("apple: presentationAnchor — the sheet is coming up")
-        let scene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }
-        return scene?.keyWindow ?? ASPresentationAnchor()
+        log.info("apple: presentationAnchor resolved — the sheet is coming up")
+        return anchor
     }
 }

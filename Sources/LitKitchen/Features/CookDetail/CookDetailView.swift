@@ -160,7 +160,7 @@ struct CookDetailView: View {
         if let rating, rating.isMeaningful {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
-                    SectionHeader("What neighbours said")
+                    SectionHeader("What neighbors said")
                     Spacer(minLength: 0)
                     // Count always next to the average. "5.0" from one review
                     // and "4.6" from ninety are not the same claim.

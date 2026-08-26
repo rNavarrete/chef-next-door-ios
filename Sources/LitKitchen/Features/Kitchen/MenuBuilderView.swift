@@ -61,7 +61,7 @@ struct MenuBuilderView: View {
                 Text("Show the food")
                     .font(LK.Typography.bodyEmphasis)
                     .foregroundStyle(LK.Palette.ink)
-                Text("Your own photos, taken on your phone. They beat a perfect stock picture, which reads as a business rather than a neighbour. Up to four — the plate, the inside, the portion in a hand.")
+                Text("Your own photos, taken on your phone. They beat a perfect stock picture, which reads as a business rather than a neighbor. Up to four — the plate, the inside, the portion in a hand.")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -161,7 +161,7 @@ struct MapKitchenView: View {
         // safe area alone leaves the button under the glass.
         .padding(.bottom, 22)
         .accessibilityLabel(browsing.isFollowingDevice
-                            ? "Recentre on my location"
+                            ? "Recenter on my location"
                             : "Use my location")
     }
 

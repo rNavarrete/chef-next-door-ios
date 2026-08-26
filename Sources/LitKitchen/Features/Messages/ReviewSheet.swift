@@ -34,7 +34,7 @@ struct ReviewSheet: View {
                         // No autocorrect, same as the menu builder: this field
                         // will carry dish names in two languages, and iOS
                         // cheerfully turns "pupusa revuelta" into English.
-                        TextField("Anything you'd tell a neighbour? (optional)",
+                        TextField("Anything you'd tell a neighbor? (optional)",
                                   text: $body_, axis: .vertical)
                             .font(LK.Typography.body)
                             .lineLimit(3...6)

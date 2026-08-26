@@ -207,7 +207,7 @@ struct KitchenView: View {
         .sheet(isPresented: $askingPush) {
             PushSoftAsk(
                 title: "You're open. Want to know when someone writes?",
-                message: "You've just told your neighbours you're cooking. We can tell you the moment somebody messages — otherwise you'll need to keep checking.",
+                message: "You've just told your neighbors you're cooking. We can tell you the moment somebody messages — otherwise you'll need to keep checking.",
                 onDecided: { OnboardingFlag.pushCook.set() }
             )
         }
@@ -365,7 +365,7 @@ struct KitchenView: View {
                 Text("You're cooking")
                     .font(LK.Typography.screenTitle)
                     .foregroundStyle(LK.Palette.ink)
-                Text("Neighbours can see you're cooking · tap the dial to close")
+                Text("Neighbors can see you're cooking · tap the dial to close")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
             } else if model.hasEverOpened {
@@ -388,7 +388,7 @@ struct KitchenView: View {
                     .font(LK.Typography.titleSecondary)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(LK.Palette.ink)
-                Text("Add what you make, then tap the dial when you're cooking. Neighbours only see you while you're open.")
+                Text("Add what you make, then tap the dial when you're cooking. Neighbors only see you while you're open.")
                     .font(LK.Typography.meta)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(LK.Palette.inkTertiary)

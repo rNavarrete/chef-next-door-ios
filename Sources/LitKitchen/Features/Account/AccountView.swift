@@ -17,6 +17,15 @@ import SwiftUI
 /// offers Apple. There was no neutral way back into an existing account.
 struct AccountView: View {
     @Bindable var session: SessionController
+    /// Called once a sign-in actually succeeds.
+    ///
+    /// This screen is both the Account tab's root *and* a sheet pushed from the
+    /// messaging gate. As the tab root, success needs no callback — `RootView`
+    /// re-evaluates and swaps in the signed-in view. As a sheet, nothing was
+    /// listening: the credentials were accepted, the session changed, and the
+    /// form stayed exactly where it was, so signing in looked like it had done
+    /// nothing at all.
+    var onSignedIn: () -> Void = {}
 
     @State private var email = ""
     @State private var password = ""
@@ -73,6 +82,12 @@ struct AccountView: View {
                     Task {
                         await session.signIn(email: email, password: password)
                         isWorking = false
+                        // `signInError` is the only success signal this call
+                        // gives — it returns Void and sets the error to nil on
+                        // the way through.
+                        if session.signInError == nil, session.userID != nil {
+                            onSignedIn()
+                        }
                     }
                 } label: {
                     Group {

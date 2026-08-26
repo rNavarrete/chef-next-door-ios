@@ -37,7 +37,7 @@ struct CookStorySheet: View {
                         .font(LK.Typography.titleSecondary)
                         .foregroundStyle(LK.Palette.ink)
 
-                    Text("Buyers can see your permit and your prices. This is the only place they can meet *you* — who taught you to cook, the recipe you're proudest of, what feeding this neighbourhood means to you.")
+                    Text("Buyers can see your permit and your prices. This is the only place they can meet *you* — who taught you to cook, the recipe you're proudest of, what feeding this neighborhood means to you.")
                         .font(LK.Typography.meta)
                         .foregroundStyle(LK.Palette.inkTertiary)
                         .fixedSize(horizontal: false, vertical: true)

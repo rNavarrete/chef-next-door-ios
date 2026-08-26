@@ -80,7 +80,7 @@ struct CookOnboardingView: View {
                     photoURL: $avatarURL, kind: .avatar,
                     size: 76, isCircular: true, emptyLabel: "Add photo"
                 )
-                Text("A photo of you or your kitchen. Neighbours are deciding whether to knock on a stranger's door — a face makes that easier.")
+                Text("A photo of you or your kitchen. Neighbors are deciding whether to knock on a stranger's door — a face makes that easier.")
                     .font(LK.Typography.meta)
                     .foregroundStyle(LK.Palette.inkTertiary)
                     .fixedSize(horizontal: false, vertical: true)

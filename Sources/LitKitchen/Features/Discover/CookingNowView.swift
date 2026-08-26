@@ -466,7 +466,7 @@ struct CookingNowView: View {
                 .font(LK.Typography.body)
                 .foregroundStyle(LK.Palette.inkQuiet)
                 .multilineTextAlignment(.center)
-            Text("Most cooks are in the San Gabriel Valley today. Try another neighbourhood, or follow a cook and we'll tell you when they start.")
+            Text("Most cooks are in the San Gabriel Valley today. Try another neighborhood, or follow a cook and we'll tell you when they start.")
                 .font(LK.Typography.meta)
                 .foregroundStyle(LK.Palette.inkTertiary)
                 .multilineTextAlignment(.center)

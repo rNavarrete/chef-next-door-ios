@@ -46,7 +46,7 @@ struct AccountHomeView: View {
                 // The one place becoming a cook is offered, and it is framed as
                 // a decision rather than as the next step in signing up.
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Cooking for your neighbours?")
+                    Text("Cooking for your neighbors?")
                         .font(LK.Typography.bodyEmphasis)
                         .foregroundStyle(LK.Palette.ink)
                     Text("Set up a kitchen, build a menu, and open up when you're cooking. You'll need a MEHKO permit from your county.")

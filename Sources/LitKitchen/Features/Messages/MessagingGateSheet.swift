@@ -74,7 +74,7 @@ struct MessagingGateSheet: View {
         .sheet(isPresented: $showingEmailSignIn, onDismiss: {
             Task { await refreshStep() }
         }) {
-            AccountView(session: session)
+            AccountView(session: session) { showingEmailSignIn = false }
         }
     }
 
