@@ -25,8 +25,42 @@ struct DishPhoto: View {
     /// Seeded from the cache so a photo already in memory renders on the very
     /// first frame — no placeholder, no fade. This is what stops map pins
     /// blinking back to fork-and-knife every time the camera moves.
+    ///
+    /// The seeding happens in `init`, and it has to happen there. `.task` is
+    /// the obvious home for it and is exactly one frame too late: SwiftUI
+    /// draws the view before the task body runs, so frame one is the
+    /// placeholder and the photograph arrives a beat behind it. Once, on a
+    /// screen that stays put, that reads as loading. On the map — where the
+    /// camera publishes a new zoom on every frame of a pinch and every pin is
+    /// rebuilt with it — it reads as photographs that had already loaded
+    /// flickering back to fork-and-knife.
+    ///
+    /// The cache read is a synchronous `NSCache` lookup and the URL is pure
+    /// string work, so there is nothing to await: this costs a dictionary
+    /// probe per pin and removes the blank frame entirely.
     @State private var loaded: UIImage?
     @State private var failed = false
+
+    @MainActor
+    init(
+        urlString: String?,
+        size: CGFloat = 104,
+        height: CGFloat? = nil,
+        cornerRadius: CGFloat = LK.Metrics.radiusInner,
+        isLit: Bool = true,
+        monogramSource: String? = nil
+    ) {
+        self.urlString = urlString
+        self.size = size
+        self.height = height
+        self.cornerRadius = cornerRadius
+        self.isLit = isLit
+        self.monogramSource = monogramSource
+        _loaded = State(
+            initialValue: Self.sizedURL(urlString, size: size, height: height)
+                .flatMap(DishImageCache.cached)
+        )
+    }
 
     /// What we actually ask the network for: this view's own frame, in pixels.
     ///
@@ -38,6 +72,13 @@ struct DishPhoto: View {
     /// to a step so that a 106pt and a 112pt frame share one cache entry and
     /// one download instead of two near-identical ones.
     private var requestURL: String? {
+        Self.sizedURL(urlString, size: size, height: height)
+    }
+
+    /// Static so `init` can call it before `self` exists — the seeding above
+    /// needs the same URL the `.task` will ask for, or it would look up a key
+    /// nothing was ever stored under.
+    private static func sizedURL(_ urlString: String?, size: CGFloat, height: CGFloat?) -> String? {
         let scale = min(UIScreen.main.scale, 3)
         let step = 32.0
         let w = Int((size * scale / step).rounded(.up) * step)
