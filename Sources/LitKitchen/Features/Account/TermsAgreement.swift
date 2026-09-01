@@ -47,7 +47,7 @@ struct AgreementGate: View {
                         .foregroundStyle(isAccepted ? LK.Palette.action : LK.Palette.inkTertiary)
                         .accessibilityHidden(true)
 
-                    Text("I agree to the Terms of Use, and I understand there is no tolerance for objectionable content or abusive behaviour.")
+                    Text("I agree to the Terms of Use, and I understand there is no tolerance for objectionable content or abusive behavior.")
                         .font(LK.Typography.meta)
                         .foregroundStyle(LK.Palette.inkQuiet)
                         .multilineTextAlignment(.leading)

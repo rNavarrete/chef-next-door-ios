@@ -75,7 +75,7 @@ struct TermsView: View {
             """
         ),
         Section(
-            heading: "Zero tolerance for objectionable content and abusive behaviour",
+            heading: "Zero tolerance for objectionable content and abusive behavior",
             body: """
             There is no tolerance for objectionable content or abusive users on \
             Chef Next Door.
