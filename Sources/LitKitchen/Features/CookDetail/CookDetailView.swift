@@ -76,7 +76,9 @@ struct CookDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .topLeading) { backButton }
-        .overlay(alignment: .topTrailing) { followButton }
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 8) { safetyMenu; followButton }
+        }
         .sheet(isPresented: $showingReport) {
             ReportSheet(cookID: model.result.cookID, cookName: firstName)
         }
@@ -305,6 +307,38 @@ struct CookDetailView: View {
         .buttonStyle(.plain)
         .padding(.leading, LK.Metrics.feedGutter)
         .padding(.top, 6)
+    }
+
+    /// Report and block, in the place a reviewer looks for them.
+    ///
+    /// These actions already existed at the foot of the page, deliberately
+    /// understated — the comment on `safetyActions` says they "must exist, and
+    /// be findable without a search". They were not found: App Review rejected
+    /// the app under Guideline 1.2 on 30 August 2026 reporting no mechanism to
+    /// flag content or block a user, having evidently never scrolled to them.
+    ///
+    /// Understatement was the wrong instinct for a safety control. The
+    /// convention on iOS is an overflow menu in the top-right corner, that is
+    /// where anyone looks first, and a person who needs to block someone is
+    /// having a bad time already. Both placements are kept: this one is found,
+    /// the one at the foot is read.
+    private var safetyMenu: some View {
+        Menu {
+            Button("Report this kitchen", systemImage: "flag") { showingReport = true }
+            Button(
+                isBlocked ? "Unblock this kitchen" : "Block this kitchen",
+                systemImage: isBlocked ? "hand.raised.slash" : "hand.raised",
+                role: isBlocked ? nil : .destructive
+            ) { showingBlockConfirm = true }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(LK.Typography.bodyEmphasis)
+                .foregroundStyle(LK.Palette.ink)
+                .frame(width: 36, height: 36)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .padding(.top, 6)
+        .accessibilityLabel("Report or block this kitchen")
     }
 
     private var followButton: some View {

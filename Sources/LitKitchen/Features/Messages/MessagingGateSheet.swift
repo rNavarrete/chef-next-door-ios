@@ -27,6 +27,7 @@ struct MessagingGateSheet: View {
 
     @State private var name = ""
     @State private var showingEmailSignIn = false
+    @State private var hasAgreed = TermsAgreement.isAccepted
     @State private var photo: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var isSaving = false
@@ -99,6 +100,8 @@ struct MessagingGateSheet: View {
             AppleSignInButton(session: session) {
                 Task { await refreshStep() }
             }
+            .disabled(!hasAgreed)
+            .opacity(hasAgreed ? 1 : 0.4)
             if let signInError = session.signInError, !signInError.isEmpty {
                 Text(signInError)
                     .font(LK.Typography.meta)
@@ -119,6 +122,15 @@ struct MessagingGateSheet: View {
             .font(LK.Typography.body)
             .foregroundStyle(LK.Palette.action)
             .frame(minHeight: 44)
+            .disabled(!hasAgreed)
+            .opacity(hasAgreed ? 1 : 0.4)
+
+            // This sheet is the *other* front door — a buyer who taps a cook's
+            // Message button never sees the Account tab. Guideline 1.2 asks for
+            // the agreement before logging in, so it has to stand in front of
+            // both doors, not the one we happened to think of first.
+            AgreementGate(isAccepted: $hasAgreed)
+                .padding(.top, 2)
 
             // Only true when there is an anonymous identity to upgrade. Fully
             // signed out, Apple creates a *new* account and nothing carries

@@ -31,9 +31,11 @@ struct AccountView: View {
     @State private var password = ""
     @State private var isWorking = false
     @State private var showingSignUp = false
+    /// Guideline 1.2: agreed before registering or logging in, not after.
+    @State private var hasAgreed = TermsAgreement.isAccepted
 
     private var canSubmit: Bool {
-        !email.isEmpty && !password.isEmpty && !isWorking
+        !email.isEmpty && !password.isEmpty && !isWorking && hasAgreed
     }
 
     var body: some View {
@@ -108,6 +110,13 @@ struct AccountView: View {
                 .disabled(!canSubmit)
 
                 AppleSignInButton(session: session)
+                    .disabled(!hasAgreed)
+                    .opacity(hasAgreed ? 1 : 0.4)
+
+                // Above the divider, so it sits in front of *all three* ways in
+                // — password, Apple, and Create an account — rather than in
+                // front of whichever one happens to be nearest.
+                AgreementGate(isAccepted: $hasAgreed)
 
                 Divider().overlay(LK.Palette.hairline).padding(.vertical, 2)
 
@@ -132,6 +141,8 @@ struct AccountView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .disabled(!hasAgreed)
+                    .opacity(hasAgreed ? 1 : 0.4)
                 }
             }
             .padding(LK.Metrics.screenPadding)
