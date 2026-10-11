@@ -2,12 +2,9 @@
 
 <p align="center"><em>Who's cooking right now.</em></p>
 
-<p align="center">
-  
-
 https://github.com/user-attachments/assets/264180f3-cef9-4ad4-98f7-1f660033634e
 
-
+<p align="center">
   <img src="docs/screenshots/welcome.png" width="24%" alt="Welcome screen: Neighbors cooking today">
   <img src="docs/screenshots/feed.png" width="24%" alt="The Cooking now feed">
   <img src="docs/screenshots/map.png" width="24%" alt="The map, with dish photos as pins">
