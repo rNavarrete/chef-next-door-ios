@@ -3,6 +3,11 @@
 <p align="center"><em>Who's cooking right now.</em></p>
 
 <p align="center">
+  
+
+https://github.com/user-attachments/assets/264180f3-cef9-4ad4-98f7-1f660033634e
+
+
   <img src="docs/screenshots/welcome.png" width="24%" alt="Welcome screen: Neighbors cooking today">
   <img src="docs/screenshots/feed.png" width="24%" alt="The Cooking now feed">
   <img src="docs/screenshots/map.png" width="24%" alt="The map, with dish photos as pins">
@@ -15,10 +20,6 @@ A cook sets up a storefront once, then turns their light **on** when they start 
 
 Codenamed **Lit Kitchen** — as in, the kitchen's light is on. That's still the name of the repo, the module and the bundle.
 
-## Video Demo
-
-
-https://github.com/user-attachments/assets/17e6b8b8-3b8c-42a2-bfe7-8ad1fe906535
 
 ---
 
