@@ -1,9 +1,6 @@
 <h1 align="center">Chef Next Door</h1>
 
 <p align="center"><em>Who's cooking right now.</em></p>
-
-https://github.com/user-attachments/assets/264180f3-cef9-4ad4-98f7-1f660033634e
-
 <p align="center">
   <img src="docs/screenshots/welcome.png" width="24%" alt="Welcome screen: Neighbors cooking today">
   <img src="docs/screenshots/feed.png" width="24%" alt="The Cooking now feed">
@@ -12,6 +9,8 @@ https://github.com/user-attachments/assets/264180f3-cef9-4ad4-98f7-1f660033634e
 </p>
 
 A native iOS app for finding home-cooked food from your neighbors — tamales, birria, pupusas, sourdough — and knowing which kitchens are actually cooking *right now*.
+
+https://github.com/user-attachments/assets/264180f3-cef9-4ad4-98f7-1f660033634e
 
 A cook sets up a storefront once, then turns their light **on** when they start cooking and **off** when they're done. Buyers see a live map and an open-now feed, message the cook, and pay them directly. The app never takes a payment and never takes a fee.
 
