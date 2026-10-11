@@ -15,6 +15,11 @@ A cook sets up a storefront once, then turns their light **on** when they start 
 
 Codenamed **Lit Kitchen** — as in, the kitchen's light is on. That's still the name of the repo, the module and the bundle.
 
+## Video Demo
+
+
+https://github.com/user-attachments/assets/17e6b8b8-3b8c-42a2-bfe7-8ad1fe906535
+
 ---
 
 ## Where this came from
